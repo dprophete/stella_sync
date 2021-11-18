@@ -180,8 +180,7 @@ fs.removeSync(lockFile);
 if (argv.img) {
   const img = cleanPath(argv.img);
   processImg(img);
-}
-if (argv.dir) {
+} else if (argv.dir) {
   const dir = cleanPath(argv.dir);
   log(`watching dir ${ppPath(dir)}`);
   chokidar.watch(dir).on("change", (path) => {
@@ -190,4 +189,7 @@ if (argv.dir) {
       processImg(path);
     }
   });
+} else {
+  console.log(`usage: stella_sync.mjs --img <img to analyze>
+       stella_sync.mjs --dir <dir to watch>`);
 }
