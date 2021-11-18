@@ -108,11 +108,16 @@ function ppJ2000([x, y, z]) {
 
 // find where we are in stellarium
 async function getRaDegStella() {
-  let res = await $`curl -s ${stellariumApi}/main/view`;
-  let j2000 = JSON.parse(JSON.parse(res.stdout)["j2000"]);
-  let [raDeg, decDeg] = j2000ToDeg(j2000);
-  log(`stellarium at: ${ppJ2000(j2000)} -> ra: ${ppDeg(raDeg)}, dec: ${ppDeg(decDeg)}`);
-  return [raDeg, decDeg];
+  try {
+    let res = await $`curl -s ${stellariumApi}/main/view`;
+    let j2000 = JSON.parse(JSON.parse(res.stdout)["j2000"]);
+    let [raDeg, decDeg] = j2000ToDeg(j2000);
+    log(`stellarium at: ${ppJ2000(j2000)} -> ra: ${ppDeg(raDeg)}, dec: ${ppDeg(decDeg)}`);
+    return [raDeg, decDeg];
+  } catch (_) {
+    logError("stellarium not running or doesn't have the remote control plugin)");
+    process.exit();
+  }
 }
 
 async function plateSolve({ srcImg, raDegStella, decDegStella, fovStella }) {
@@ -154,6 +159,10 @@ async function processImg(srcImg) {
     logError(`lockFile ${lockFile} already exists -> abort`);
     return;
   }
+  if (!fs.pathExistsSync(srcImg)) {
+    logError(`image ${srcImg} not found -> abort`);
+    return;
+  }
   fs.ensureFileSync(lockFile);
 
   let [raDegStella, decDegStella] = await getRaDegStella();
@@ -181,6 +190,10 @@ if (argv.img) {
   const img = cleanPath(argv.img);
   processImg(img);
 } else if (argv.dir) {
+  if (!fs.pathExistsSync(argv.dir)) {
+    logError(`dir ${argv.dir} not found -> abort`);
+    process.exit();
+  }
   const dir = cleanPath(argv.dir);
   log(`watching dir ${ppPath(dir)}`);
   chokidar.watch(dir).on("change", (path) => {
