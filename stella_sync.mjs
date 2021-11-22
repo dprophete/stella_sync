@@ -52,12 +52,14 @@ function hmsToDeg([hours, mins, secs]) {
   return ((hours + mins / 60 + secs / 3600) / 24) * 360;
 }
 
+// ra/dec (degrees) -> [x, y, z] (j2000)
 function degToJ2000(raDeg, decDeg) {
   let α = degToRad(raDeg);
   let δ = degToRad(decDeg);
   return [cos(δ) * cos(α), cos(δ) * sin(α), sin(δ)];
 }
 
+// [x, y, z] (j2000) -> ra/dec (degrees)
 function j2000ToDeg([x, y, z]) {
   return [radToDeg(atan2(y, x)), radToDeg(asin(z))];
 }
@@ -107,6 +109,7 @@ function ppJ2000([x, y, z]) {
 //--------------------------------------------------------------------------------
 
 // find where we are in stellarium
+// return: [ra, dec] (degreees)
 async function getRaDegStella() {
   try {
     let res = await $`curl -s ${stellariumApi}/main/view`;
@@ -120,6 +123,7 @@ async function getRaDegStella() {
   }
 }
 
+// return: [angle (degrees), j2000]
 async function plateSolve({ srcImg, raDegStella, decDegStella, fovStella }) {
   // copy img to tmp dst
   const baseImg = path.basename(srcImg);
@@ -148,11 +152,16 @@ async function plateSolve({ srcImg, raDegStella, decDegStella, fovStella }) {
 }
 
 // move stellarium
+// params: angle (in degrees), j2000
 async function moveStellarium(angle, [x, y, z]) {
   await $`curl -s -d 'position=[${x}, ${y}, ${z}]' ${stellariumApi}/main/focus`;
   await $`curl -s -d "id=Oculars.selectedCCDRotationAngle&value=${angle}" ${stellariumApi}/stelproperty/set`;
 }
 
+// process image:
+// - check with stellarium where we are pointing
+// - use this to platesolve (within 1° of where stellarium is pointing)
+// - move stellarium to exactly where we are (position + rotation)
 async function processImg(srcImg) {
   log(`processing ${ppPath(srcImg)}`);
   if (fs.pathExistsSync(lockFile)) {
@@ -176,6 +185,7 @@ async function processImg(srcImg) {
   fs.removeSync(lockFile);
 }
 
+// ~/astronomy/sharpcap -> /Users/didier/astronomy/sharpcap
 function cleanPath(pth) {
   return pth.replace("~", os.homedir());
 }
@@ -204,5 +214,5 @@ if (argv.img) {
   });
 } else {
   console.log(`usage: stella_sync.mjs --img <img to analyze>
-       stella_sync.mjs --dir <dir to watch>`);
+      stella_sync.mjs --dir <dir to watch>`);
 }
