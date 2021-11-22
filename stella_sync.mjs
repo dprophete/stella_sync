@@ -196,7 +196,7 @@ if (argv.img) {
   }
   const dir = cleanPath(argv.dir);
   log(`watching dir ${ppPath(dir)}`);
-  chokidar.watch(dir).on("change", (path) => {
+  chokidar.watch(dir).on("add", (path) => {
     if (path.endsWith(".fit") || path.endsWith(".png") || path.endsWith(".jpg")) {
       log(chalk.yellow("--------------------------------------------------------------------------------"));
       processImg(path);
