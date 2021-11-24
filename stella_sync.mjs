@@ -4,7 +4,7 @@
 //        stella_sync.mjs --port <port>
 
 import "zx";
-import 'zx/globals';
+import "zx/globals";
 $.verbose = false;
 
 const chokidar = require("chokidar");
@@ -15,8 +15,11 @@ const tmpDir = "/tmp/stella_sync";
 const plateSolveDir = `${tmpDir}/platesolve`;
 const uploadDir = `${tmpDir}/upload`;
 const lockFile = "/tmp/stella_sync.lock";
-let curl = "";
-let stellariumApi = "";
+
+// on windows, wsl can't ping localhost (apparently the port mapping in only one way so we
+// have to resolve localhost in a different way)
+const localhost = (await $`hostname -s`).stdout.trim() + ".local";
+const stellariumApi = `http://${localhost}:8090/api`;
 
 const PI = Math.PI;
 const cos = Math.cos;
@@ -121,26 +124,11 @@ function play(sound) {
   }
 }
 
-async function setupCurl() {
-//  if (fs.pathExistsSync("/usr/bin/curl")) {
-    curl = "/usr/bin/curl";
-//  } else {
-//    curl = cleanPath("~/bin/curl.sh");
-//	curl = `${os.homedir()}/Downloads/curl.exe`;
-//  }
-	//
-   let res = await $`grep -m 1 nameserver /etc/resolv.conf | awk '{print $2}'`;
-   let localhost = res.stdout.trim();
-	stellariumApi = `http://${localhost}:8090/api`;
-  log(`using ${curl}`);
-  log(`using localhost ${localhost}`);
-}
-
 // find where we are in stellarium
 // return: [ra, dec] (degreees)
 async function getRaDegStella() {
   try {
-    let res = await $`${curl} -s ${stellariumApi}/main/view`;
+    let res = await $`curl -s ${stellariumApi}/main/view`;
     let j2000 = JSON.parse(JSON.parse(res.stdout)["j2000"]);
     let [raDeg, decDeg] = j2000ToDeg(j2000);
     log(`stellarium at: ${ppJ2000(j2000)} -> ra: ${ppDeg(raDeg)}, dec: ${ppDeg(decDeg)}`);
@@ -159,7 +147,7 @@ async function plateSolve({ srcImg, raDegStella, decDegStella, fovStella, server
 
 async function remotePlateSolve({ srcImg, raDegStella, decDegStella, fovStella, server }) {
   log("sending img to remove server for platesolve");
-  let res = await $`${curl} -X POST -F "ra=${raDegStella}" -F "dec=${decDegStella}" -F "fov=${fovStella}" -F "img=@${srcImg}" ${server}/platesolve`;
+  let res = await $`curl -X POST -F "ra=${raDegStella}" -F "dec=${decDegStella}" -F "fov=${fovStella}" -F "img=@${srcImg}" ${server}/platesolve`;
   let { success, angle, j2000, error } = JSON.parse(res.stdout);
   if (success) {
     log(`solved: ${ppJ2000(j2000)}`);
@@ -198,8 +186,8 @@ async function localPlateSolve({ srcImg, raDegStella, decDegStella, fovStella })
 // move stellarium
 // params: angle (in degrees), j2000
 async function moveStellarium(angle, [x, y, z]) {
-  await $`${curl} -s -d 'position=[${x}, ${y}, ${z}]' ${stellariumApi}/main/focus`;
-  await $`${curl} -s -d "id=Oculars.selectedCCDRotationAngle&value=${angle}" ${stellariumApi}/stelproperty/set`;
+  await $`curl -s -d 'position=[${x}, ${y}, ${z}]' ${stellariumApi}/main/focus`;
+  await $`curl -s -d "id=Oculars.selectedCCDRotationAngle&value=${angle}" ${stellariumApi}/stelproperty/set`;
 }
 
 // process image:
@@ -276,7 +264,6 @@ function startServer(port) {
 //--------------------------------------------------------------------------------
 
 fs.removeSync(lockFile);
-await setupCurl();
 
 if (argv.server) {
   log(`will use remote server at ${argv.server} for platesolving`);
