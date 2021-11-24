@@ -15,6 +15,7 @@ const tmpDir = "/tmp/stella_sync";
 const plateSolveDir = `${tmpDir}/platesolve`;
 const uploadDir = `${tmpDir}/upload`;
 const lockFile = "/tmp/stella_sync.lock";
+let curl = "";
 
 const PI = Math.PI;
 const cos = Math.cos;
@@ -113,11 +114,20 @@ function ppJ2000([x, y, z]) {
 // misc
 //--------------------------------------------------------------------------------
 
+function setupCurl() {
+  if (fs.pathExistsSync("/usr/bin/curl")) {
+    curl = "/usr/bin/curl";
+  } else {
+    curl = `${os.homedir()}/Downloads/curl.exe`;
+  }
+  log(`using ${curl}`);
+}
+
 // find where we are in stellarium
 // return: [ra, dec] (degreees)
 async function getRaDegStella() {
   try {
-    let res = await $`curl -s ${stellariumApi}/main/view`;
+    let res = await $`${curl} -s ${stellariumApi}/main/view`;
     let j2000 = JSON.parse(JSON.parse(res.stdout)["j2000"]);
     let [raDeg, decDeg] = j2000ToDeg(j2000);
     log(`stellarium at: ${ppJ2000(j2000)} -> ra: ${ppDeg(raDeg)}, dec: ${ppDeg(decDeg)}`);
@@ -135,9 +145,12 @@ async function plateSolve({ srcImg, raDegStella, decDegStella, fovStella, server
 }
 
 async function remotePlateSolve({ srcImg, raDegStella, decDegStella, fovStella, server }) {
-  let res = await $`curl -X POST -F "ra=${raDegStella}" -F "dec=${decDegStella}" -F "fov=${fovStella}" -F "img=@${srcImg}" ${server}/platesolve`;
+  log("sending img to remove server for platesolve");
+  let res = await $`${curl} -X POST -F "ra=${raDegStella}" -F "dec=${decDegStella}" -F "fov=${fovStella}" -F "img=@${srcImg}" ${server}/platesolve`;
   let { success, angle, j2000, error } = JSON.parse(res.stdout);
   if (success) {
+    log(`solved: ${ppJ2000(j2000)}`);
+    log(`rotation: ${ppDeg(angle)}`);
     return [angle, j2000];
   } else throw error;
 }
@@ -172,8 +185,8 @@ async function localPlateSolve({ srcImg, raDegStella, decDegStella, fovStella })
 // move stellarium
 // params: angle (in degrees), j2000
 async function moveStellarium(angle, [x, y, z]) {
-  await $`curl -s -d 'position=[${x}, ${y}, ${z}]' ${stellariumApi}/main/focus`;
-  await $`curl -s -d "id=Oculars.selectedCCDRotationAngle&value=${angle}" ${stellariumApi}/stelproperty/set`;
+  await $`${curl} -s -d 'position=[${x}, ${y}, ${z}]' ${stellariumApi}/main/focus`;
+  await $`${curl} -s -d "id=Oculars.selectedCCDRotationAngle&value=${angle}" ${stellariumApi}/stelproperty/set`;
 }
 
 // process image:
@@ -244,11 +257,14 @@ function startServer(port) {
     log(`starting in server mode on port ${argv.port}`);
   });
 }
+
 //--------------------------------------------------------------------------------
 // main
 //--------------------------------------------------------------------------------
 
 fs.removeSync(lockFile);
+
+setupCurl();
 
 if (argv.server) {
   log(`will use remote server at ${argv.server} for platesolving`);
