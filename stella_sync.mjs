@@ -4,18 +4,19 @@
 //        stella_sync.mjs --port <port>
 
 import "zx";
-//$.verbose = false;
+import 'zx/globals';
+$.verbose = false;
 
 const chokidar = require("chokidar");
 const express = require("express");
 const multer = require("multer");
 
-const stellariumApi = "http://localhost:8090/api";
 const tmpDir = "/tmp/stella_sync";
 const plateSolveDir = `${tmpDir}/platesolve`;
 const uploadDir = `${tmpDir}/upload`;
 const lockFile = "/tmp/stella_sync.lock";
 let curl = "";
+let stellariumApi = "";
 
 const PI = Math.PI;
 const cos = Math.cos;
@@ -30,7 +31,7 @@ function log(...args) {
 }
 
 function logError(...args) {
-  $`afplay /System/Library/Sounds/Ping.aiff`;
+  play("/System/Library/Sounds/Ping.aiff");
   console.log(chalk.red(ppNow(), ...args));
 }
 
@@ -114,13 +115,25 @@ function ppJ2000([x, y, z]) {
 // misc
 //--------------------------------------------------------------------------------
 
-function setupCurl() {
-  if (fs.pathExistsSync("/usr/bin/curl")) {
-    curl = "/usr/bin/curl";
-  } else {
-    curl = `${os.homedir()}/Downloads/curl.exe`;
+function play(sound) {
+  if (fs.pathExistsSync("/usr/bin/afplay")) {
+    $`afplay ${sound}`;
   }
+}
+
+async function setupCurl() {
+//  if (fs.pathExistsSync("/usr/bin/curl")) {
+    curl = "/usr/bin/curl";
+//  } else {
+//    curl = cleanPath("~/bin/curl.sh");
+//	curl = `${os.homedir()}/Downloads/curl.exe`;
+//  }
+	//
+   let res = await $`grep -m 1 nameserver /etc/resolv.conf | awk '{print $2}'`;
+   let localhost = res.stdout.trim();
+	stellariumApi = `http://${localhost}:8090/api`;
   log(`using ${curl}`);
+  log(`using localhost ${localhost}`);
 }
 
 // find where we are in stellarium
@@ -209,7 +222,7 @@ async function processImg(srcImg, server) {
   try {
     let [angle, j2000] = await plateSolve({ srcImg, raDegStella, decDegStella, fovStella, server });
     await moveStellarium(angle, j2000);
-    $`afplay /System/Library/Sounds/Purr.aiff`;
+    play("/System/Library/Sounds/Purr.aiff");
   } catch (e) {
     logError(e);
   }
@@ -263,7 +276,7 @@ function startServer(port) {
 //--------------------------------------------------------------------------------
 
 fs.removeSync(lockFile);
-setupCurl();
+await setupCurl();
 
 if (argv.server) {
   log(`will use remote server at ${argv.server} for platesolving`);
