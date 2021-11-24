@@ -1,6 +1,7 @@
 #!/usr/bin/env zx
 // usage: stella_sync.mjs --img <path to img>
-//        stella_sync.mjs --dir <path to dir to watch>
+//        stella_sync.mjs --dir <path to dir to watch> [--server url]
+//        stella_sync.mjs --port <port>
 
 import "zx";
 $.verbose = false;
@@ -124,7 +125,14 @@ async function getRaDegStella() {
 }
 
 // return: [angle (degrees), j2000]
-async function plateSolve({ srcImg, raDegStella, decDegStella, fovStella }) {
+async function plateSolve({ srcImg, raDegStella, decDegStella, fovStella, server }) {
+  if (server) remotePlateSolve({ srcImg, raDegStella, decDegStella, fovStella, server });
+  else localPlateSolve({ srcImg, raDegStella, decDegStella, fovStella });
+}
+
+async function remotePlateSolve({ srcImg, raDegStella, decDegStella, fovStella, server }) {}
+
+async function localPlateSolve({ srcImg, raDegStella, decDegStella, fovStella }) {
   // copy img to tmp dst
   const baseImg = path.basename(srcImg);
   const dstImg = `${dstDir}/${baseImg}`;
@@ -162,7 +170,7 @@ async function moveStellarium(angle, [x, y, z]) {
 // - check with stellarium where we are pointing
 // - use this to platesolve (within 1° of where stellarium is pointing)
 // - move stellarium to exactly where we are (position + rotation)
-async function processImg(srcImg) {
+async function processImg(srcImg, server) {
   log(`processing ${ppPath(srcImg)}`);
   if (fs.pathExistsSync(lockFile)) {
     logError(`lockFile ${lockFile} already exists -> abort`);
@@ -176,7 +184,7 @@ async function processImg(srcImg) {
 
   let [raDegStella, decDegStella] = await getRaDegStella();
   try {
-    let [angle, j2000] = await plateSolve({ srcImg, raDegStella, decDegStella, fovStella });
+    let [angle, j2000] = await plateSolve({ srcImg, raDegStella, decDegStella, fovStella, server });
     await moveStellarium(angle, j2000);
     $`afplay /System/Library/Sounds/Purr.aiff`;
   } catch (e) {
@@ -196,23 +204,32 @@ function cleanPath(pth) {
 
 fs.removeSync(lockFile);
 
+if (argv.server) {
+  log(`will use remote server at ${argv.server}} for platesolving`);
+  // try to ping server
+}
+
 if (argv.img) {
   const img = cleanPath(argv.img);
-  processImg(img);
+  processImg(img, argv.server);
 } else if (argv.dir) {
-  if (!fs.pathExistsSync(argv.dir)) {
+  const dir = cleanPath(argv.dir);
+  if (!fs.pathExistsSync(dir)) {
     logError(`dir ${argv.dir} not found -> abort`);
     process.exit();
   }
-  const dir = cleanPath(argv.dir);
   log(`watching dir ${ppPath(dir)}`);
   chokidar.watch(dir).on("add", (path) => {
     if (path.endsWith(".fit") || path.endsWith(".png") || path.endsWith(".jpg")) {
       log(chalk.yellow("--------------------------------------------------------------------------------"));
-      processImg(path);
+      processImg(path, argv.server);
     }
   });
+} else if (argv.port) {
+  const port = parseInt(argv.port);
+  log(`starting in server mode on port ${argv.port}`);
 } else {
-  console.log(`usage: stella_sync.mjs --img <img to analyze>
-      stella_sync.mjs --dir <dir to watch>`);
+  console.log(`usage: stella_sync.mjs --img <img to analyze> [--server <server url>]
+      stella_sync.mjs --dir <dir to watch> [--server <server url>]
+      stella_sync.mjs --port <port>`);
 }
