@@ -4,7 +4,7 @@
 //        stella_sync.mjs --port <port>
 
 import "zx";
-$.verbose = false;
+//$.verbose = false;
 
 const chokidar = require("chokidar");
 const express = require("express");
@@ -263,7 +263,6 @@ function startServer(port) {
 //--------------------------------------------------------------------------------
 
 fs.removeSync(lockFile);
-
 setupCurl();
 
 if (argv.server) {
