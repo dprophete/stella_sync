@@ -226,7 +226,7 @@ function cleanPath(pth) {
 // server
 //--------------------------------------------------------------------------------
 
-function startServer(port) {
+async function startServer(port) {
   fs.mkdirpSync(uploadDir);
   const app = express();
   const upload_middleware = multer({ dest: uploadDir });
@@ -254,8 +254,9 @@ function startServer(port) {
     fs.removeSync(srcImg);
   });
 
+  const localIp = (await $`ipconfig getifaddr en0`).stdout.trim();
   app.listen(port, () => {
-    log(`starting in server mode on port ${argv.port}`);
+    log(`starting in server mode on http://${localIp}:${port}`);
   });
 }
 
@@ -299,5 +300,16 @@ if (argv.img) {
   console.log(`usage:
   stella_sync.mjs --img <img to analyze> [--server <server url>]
   stella_sync.mjs --dir <dir to watch> [--server <server url>]
-  stella_sync.mjs --port <port>`);
+  stella_sync.mjs --port <port>
+
+  when running in client/server mode:
+  - On the machine which does the platesolving (usually the mac running atrometry.net):
+      ./stella_sync.mjs --port 9010
+    This will start the server and display the exact ip of the server.
+    When the server recevied an image, it will try to platesolve it and send
+    back the exact coordinates/rotation for stellarium.
+  - On the machine which takes the pictures (usually the pc running sharpcap):
+      ./stella_sync.mjs --dir <sharpcap img dir> --server <the exact ip of the server>
+    This will monitor the shapcap dir, send the images to the server for platesolving, 
+    and then properly center/orient stellarium.`);
 }
