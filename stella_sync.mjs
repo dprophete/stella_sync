@@ -7,9 +7,13 @@ import "zx";
 $.verbose = false;
 
 const chokidar = require("chokidar");
+const express = require("express");
+const multer = require("multer");
 
 const stellariumApi = "http://localhost:8090/api";
-const dstDir = "/tmp/stella_sync";
+const tmpDir = "/tmp/stella_sync";
+const plateSolveDir = `${tmpDir}/platesolve`;
+const uploadDir = `${tmpDir}/upload`;
 const lockFile = "/tmp/stella_sync.lock";
 
 const PI = Math.PI;
@@ -126,18 +130,24 @@ async function getRaDegStella() {
 
 // return: [angle (degrees), j2000]
 async function plateSolve({ srcImg, raDegStella, decDegStella, fovStella, server }) {
-  if (server) remotePlateSolve({ srcImg, raDegStella, decDegStella, fovStella, server });
-  else localPlateSolve({ srcImg, raDegStella, decDegStella, fovStella });
+  if (server) return remotePlateSolve({ srcImg, raDegStella, decDegStella, fovStella, server });
+  else return localPlateSolve({ srcImg, raDegStella, decDegStella, fovStella });
 }
 
-async function remotePlateSolve({ srcImg, raDegStella, decDegStella, fovStella, server }) {}
+async function remotePlateSolve({ srcImg, raDegStella, decDegStella, fovStella, server }) {
+  let res = await $`curl -X POST -F "ra=${raDegStella}" -F "dec=${decDegStella}" -F "fov=${fovStella}" -F "img=@${srcImg}" ${server}/platesolve`;
+  let { success, angle, j2000, error } = JSON.parse(res.stdout);
+  if (success) {
+    return [angle, j2000];
+  } else throw error;
+}
 
 async function localPlateSolve({ srcImg, raDegStella, decDegStella, fovStella }) {
   // copy img to tmp dst
   const baseImg = path.basename(srcImg);
-  const dstImg = `${dstDir}/${baseImg}`;
-  fs.removeSync(dstDir);
-  fs.mkdirpSync(dstDir);
+  const dstImg = `${plateSolveDir}/${baseImg}`;
+  fs.removeSync(plateSolveDir);
+  fs.mkdirpSync(plateSolveDir);
   fs.copySync(srcImg, dstImg);
 
   // plate solve
@@ -199,14 +209,56 @@ function cleanPath(pth) {
 }
 
 //--------------------------------------------------------------------------------
+// server
+//--------------------------------------------------------------------------------
+
+function startServer(port) {
+  fs.mkdirpSync(uploadDir);
+  const app = express();
+  const upload_middleware = multer({ dest: uploadDir });
+
+  app.get("/ping", (req, res) => {
+    log("received ping");
+    res.send("file received");
+  });
+
+  app.post("/platesolve", upload_middleware.single("img"), async (req, res) => {
+    log(chalk.yellow("--------------------------------------------------------------------------------"));
+    log(`received platesolve for ${req.file.originalname} (size: ${Math.round(req.file.size / 1024)}kb)`);
+    const srcImg = `${uploadDir}/${req.file.originalname}`;
+    fs.moveSync(req.file.path, srcImg, { overwrite: true });
+    const raDegStella = parseFloat(req.body.ra);
+    const decDegStella = parseFloat(req.body.dec);
+    const fovStella = parseFloat(req.body.fov);
+    try {
+      let [angle, j2000] = await localPlateSolve({ srcImg, raDegStella, decDegStella, fovStella });
+      res.json({ success: true, angle, j2000 });
+    } catch (e) {
+      logError(e);
+      res.json({ success: false, error: e.toString() });
+    }
+    fs.removeSync(srcImg);
+  });
+
+  app.listen(port, () => {
+    log(`starting in server mode on port ${argv.port}`);
+  });
+}
+//--------------------------------------------------------------------------------
 // main
 //--------------------------------------------------------------------------------
 
 fs.removeSync(lockFile);
 
 if (argv.server) {
-  log(`will use remote server at ${argv.server}} for platesolving`);
+  log(`will use remote server at ${argv.server} for platesolving`);
   // try to ping server
+  try {
+    await fetch(`${argv.server}/ping`);
+  } catch (_) {
+    logError(`server did not respond`);
+    process.exit();
+  }
 }
 
 if (argv.img) {
@@ -227,9 +279,10 @@ if (argv.img) {
   });
 } else if (argv.port) {
   const port = parseInt(argv.port);
-  log(`starting in server mode on port ${argv.port}`);
+  startServer(port);
 } else {
-  console.log(`usage: stella_sync.mjs --img <img to analyze> [--server <server url>]
-      stella_sync.mjs --dir <dir to watch> [--server <server url>]
-      stella_sync.mjs --port <port>`);
+  console.log(`usage:
+  stella_sync.mjs --img <img to analyze> [--server <server url>]
+  stella_sync.mjs --dir <dir to watch> [--server <server url>]
+  stella_sync.mjs --port <port>`);
 }
