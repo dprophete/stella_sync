@@ -1,5 +1,5 @@
 #!/usr/bin/env zx
-// usage: stella_sync.mjs --img <path to img>
+// usage: stella_sync.mjs --img <path to img> [--server url]
 //        stella_sync.mjs --dir <path to dir to watch> [--server url]
 //        stella_sync.mjs --port <port>
 
