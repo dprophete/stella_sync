@@ -144,8 +144,9 @@ async function play(sound) {
 // return: [ra, dec] (degreees)
 async function getRaDegStella() {
   try {
-    let res = await exe(`curl -s ${stellariumApi}/main/view`);
-    let j2000 = JSON.parse(JSON.parse(res)["j2000"]);
+    let res = await fetch(`${stellariumApi}/main/view`);
+    let jsonRes = await res.json();
+    let j2000 = JSON.parse(jsonRes["j2000"]);
     let [raDeg, decDeg] = j2000ToDeg(j2000);
     log(`stellarium at: ${ppJ2000(j2000)} -> ra: ${ppDeg(raDeg)}, dec: ${ppDeg(decDeg)}`);
     return [raDeg, decDeg];
@@ -316,9 +317,9 @@ async function main() {
     startServer(port);
   } else {
     console.log(`usage:
-  stella_sync.mjs --img <img to analyze> [--server <server url>]
-  stella_sync.mjs --dir <dir to watch> [--server <server url>]
-  stella_sync.mjs --port <port>
+  stella_sync.js --img <img to analyze> [--server <server url>]
+  stella_sync.js --dir <dir to watch> [--server <server url>]
+  stella_sync.js --port <port>
 
   when running in client/server mode:
   - On the machine which does the platesolving (usually the mac running atrometry.net):
