@@ -52,7 +52,11 @@ async function resolveLocalhost() {
   return (await exe(`hostname -s`)).trim() + ".local";
 }
 
-const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+function sleep(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
 
 //--------------------------------------------------------------------------------
 // conversion
@@ -311,11 +315,11 @@ async function main() {
       process.exit();
     }
     log(`watching dir ${ppPath(dir)}`);
-    chokidar.watch(dir).on("add", (path) => {
+    chokidar.watch(dir).on("add", async (path) => {
       log(`file changed ${path}`);
       if (path.endsWith(".fit") || path.endsWith(".png") || path.endsWith(".jpg")) {
         log(chalk.yellow("--------------------------------------------------------------------------------"));
-        await pause(1000);
+        await sleep(1000);
         processImg(path, argv.server);
       }
     });
