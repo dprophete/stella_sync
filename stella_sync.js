@@ -4,7 +4,6 @@
 //        stella_sync.mj --port <port>
 
 const fs = require("fs-extra");
-const chokidar = require("chokidar");
 const express = require("express");
 const multer = require("multer");
 const chalk = require("chalk");
@@ -27,6 +26,10 @@ const cos = Math.cos;
 const sin = Math.sin;
 const asin = Math.asin;
 const atan2 = Math.atan2;
+
+//--------------------------------------------------------------------------------
+// misc
+//--------------------------------------------------------------------------------
 
 function log(...args) {
   console.log(chalk.yellow(ppNow()), ...args);
@@ -56,6 +59,31 @@ function sleep(ms) {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
   });
+}
+
+// ~/astronomy/sharpcap -> /Users/didier/astronomy/sharpcap
+function cleanPath(pth) {
+  return pth.replace("~", os.homedir());
+}
+
+async function play(sound) {
+  if (fs.pathExistsSync("/usr/bin/afplay")) {
+    await exe(`afplay ${sound}`);
+  }
+}
+
+// watch a dir and return the last changed file
+async function watch(dir) {
+  let cmd = `find "${dir}" -printf '%T+ %p\n' | sort -r | head -n1`;
+  let last;
+  let current = await exe(cmd);
+  while (true) {
+    await sleep(500);
+    last = await exe(cmd);
+    if (last != current) break;
+  }
+  // last is going to be: <last-modif-date><space><filepath>, so let's only keep the filepath
+  return last.substr(last.indexOf(" ") + 1).trim();
 }
 
 //--------------------------------------------------------------------------------
@@ -135,14 +163,8 @@ function ppJ2000([x, y, z]) {
 }
 
 //--------------------------------------------------------------------------------
-// misc
+// stellarium/plate solving
 //--------------------------------------------------------------------------------
-
-async function play(sound) {
-  if (fs.pathExistsSync("/usr/bin/afplay")) {
-    await exe(`afplay ${sound}`);
-  }
-}
 
 // find where we are in stellarium
 // return: [ra, dec] (degreees)
@@ -241,11 +263,6 @@ async function processImg(srcImg, server) {
   fs.removeSync(lockFile);
 }
 
-// ~/astronomy/sharpcap -> /Users/didier/astronomy/sharpcap
-function cleanPath(pth) {
-  return pth.replace("~", os.homedir());
-}
-
 //--------------------------------------------------------------------------------
 // server
 //--------------------------------------------------------------------------------
@@ -315,14 +332,15 @@ async function main() {
       process.exit();
     }
     log(`watching dir ${ppPath(dir)}`);
-    chokidar.watch(dir).on("add", async (path) => {
+    while (true) {
+      let path = await watch(dir);
       log(`file changed ${path}`);
       if (path.endsWith(".fit") || path.endsWith(".png") || path.endsWith(".jpg")) {
         log(chalk.yellow("--------------------------------------------------------------------------------"));
         await sleep(1000);
         processImg(path, argv.server);
       }
-    });
+    }
   } else if (argv.port) {
     const port = parseInt(argv.port);
     startServer(port);
@@ -334,12 +352,12 @@ async function main() {
 
   when running in client/server mode:
   - On the machine which does the platesolving (usually the mac running atrometry.net):
-      ./stella_sync.mjs --port 9010
+      ./stella_sync.mj --port 9010
     This will start the server and display the exact ip of the server.
     When the server recevied an image, it will try to platesolve it and send
     back the exact coordinates/rotation for stellarium.
   - On the machine which takes the pictures (usually the pc running sharpcap):
-      ./stella_sync.mjs --dir <sharpcap img dir> --server <the exact ip of the server>
+      ./stella_sync.mj --dir <sharpcap img dir> --server <the exact ip of the server>
     This will monitor the shapcap dir, send the images to the server for platesolving, 
     and then properly center/orient stellarium.`);
   }
