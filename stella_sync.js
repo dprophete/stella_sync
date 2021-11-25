@@ -162,7 +162,10 @@ async function plateSolve({ srcImg, raDegStella, decDegStella, fovStella, server
 
 async function remotePlateSolve({ srcImg, raDegStella, decDegStella, fovStella, server }) {
   log("sending img to remove server for platesolve");
-  let res = await exe(`curl -X POST -F "ra=${raDegStella}" -F "dec=${decDegStella}" -F "fov=${fovStella}" -F "img=@${srcImg}" ${server}/platesolve`);
+  const dstImg = `${uploadDir}/tmp${path.extname(srcImg)}`;
+  fs.rmSync(dstImg);
+  fs.copySync(srcImg, dstImg);
+  let res = await exe(`curl -X POST -F "ra=${raDegStella}" -F "dec=${decDegStella}" -F "fov=${fovStella}" -F "img=@${dstImg}" ${server}/platesolve`);
   let { success, angle, j2000, error } = JSON.parse(res);
   if (success) {
     log(`solved: ${ppJ2000(j2000)}`);
@@ -242,7 +245,6 @@ function cleanPath(pth) {
 //--------------------------------------------------------------------------------
 
 async function startServer(port) {
-  fs.mkdirpSync(uploadDir);
   const app = express();
   const upload_middleware = multer({ dest: uploadDir });
 
@@ -281,6 +283,7 @@ async function startServer(port) {
 
 async function main() {
   fs.ensureDirSync(tmpDir);
+  fs.ensureDirSync(uploadDir);
   fs.removeSync(lockFile);
   const localhost = await resolveLocalhost();
   stellariumApi = `http://${localhost}:8090/api`;
@@ -307,6 +310,7 @@ async function main() {
     }
     log(`watching dir ${ppPath(dir)}`);
     chokidar.watch(dir).on("add", (path) => {
+	    log(`file changed ${path}`);
       if (path.endsWith(".fit") || path.endsWith(".png") || path.endsWith(".jpg")) {
         log(chalk.yellow("--------------------------------------------------------------------------------"));
         processImg(path, argv.server);
