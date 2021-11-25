@@ -191,7 +191,7 @@ async function plateSolve({ srcImg, raDegStella, decDegStella, fovStella, server
 }
 
 async function remotePlateSolve({ srcImg, raDegStella, decDegStella, fovStella, server }) {
-  log("sending img to remove server for platesolve");
+  log("sending img to remote server for platesolve");
   const dstImg = `${uploadDir}/tmp${path.extname(srcImg)}`;
   fs.rmSync(dstImg);
   fs.copySync(srcImg, dstImg);
