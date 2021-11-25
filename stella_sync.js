@@ -70,6 +70,9 @@ async function play(sound) {
   if (fs.pathExistsSync("/usr/bin/afplay")) {
     await exe(`afplay ${sound}`);
   }
+  else {
+    await exe('echo "^G"');
+  }
 }
 
 // watch a dir and return the last changed file
@@ -352,12 +355,12 @@ async function main() {
 
   when running in client/server mode:
   - On the machine which does the platesolving (usually the mac running atrometry.net):
-      ./stella_sync.mj --port 9010
+      ./stella_sync.js --port 9010
     This will start the server and display the exact ip of the server.
     When the server recevied an image, it will try to platesolve it and send
     back the exact coordinates/rotation for stellarium.
   - On the machine which takes the pictures (usually the pc running sharpcap):
-      ./stella_sync.mj --dir <sharpcap img dir> --server <the exact ip of the server>
+      ./stella_sync.js --dir <sharpcap img dir> --server <the exact ip of the server>
     This will monitor the shapcap dir, send the images to the server for platesolving, 
     and then properly center/orient stellarium.`);
   }
