@@ -11,9 +11,34 @@ install
 
 usage
 ---
-- `stella_sync.mjs --img <img to analyze>`
-- `stella_sync.mjs --dir <dir to watch>`
+```
+stella_sync.js --img <img to analyze> [--server <server url>]
+stella_sync.js --dir <dir to watch> [--server <server url>]
+stella_sync.js --port <port>
+```
 
-`stella_sync` will analyze an astro image (a `.fit`, `.png` or `.jpg`) using your local astrometry.net install. It will then send the result back to stellarium and sync the oreveall focus and properly rotate the sensor view to show you exactly where your pictur was taken.
+standalone mode
+---
+Here, you have stellarium, astrometry.net and sharpcap running on the same machine.
 
-For this to succeed, you will need to first point stellarium to the approximate location of your image (the idea being that you are most probably doing this already since stellarium is used to star-hoping, so you will most likely get 'around' the target).
+Run: `stella_sync.js --dir <sharpcap image dir>`
+
+When you save an image in sharpcap, the server will query stellarium to get a rough idea of where you are pointing, then analyze the sharcap image, platesolve and then redirect stellarium to show the exact position + orientation of your image (when showing the image sensor for the current camera)
+
+client/server mode
+---
+Here, 2 machines are involved:
+
+
+**The server**  _(the machine doing the platesolving, usually the mac running atrometry.net)_
+- run `./stella_sync.js --port 9010`.
+- this will start the server and display the exact ip of the server. When the server recevied an image, it will try to platesolve it and send back the exact coordinates/rotation for stellarium.
+
+**The client** _(the machine which takes the pictures and runs stellarium, usually the pc running sharpcap)_
+- run `./stella_sync.js --dir <sharpcap img dir> --server <the exact ip/port of the server>`
+- this will monitor the shapcap dir, send the images to the server for platesolving, and then properly center/orient stellarium.
+
+
+TODO
+---
+A hybrid/dual screen mode, where the server also runs stellarium and the client only runs sharpcap. 
