@@ -69,9 +69,8 @@ function cleanPath(pth) {
 async function play(sound) {
   if (fs.pathExistsSync("/usr/bin/afplay")) {
     await exe(`afplay ${sound}`);
-  }
-  else {
-    await exe('echo "^G"');
+  } else {
+    await exe('echo ""');
   }
 }
 
