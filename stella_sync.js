@@ -176,7 +176,7 @@ async function localPlateSolve({ srcImg, raDegStella, decDegStella, fovStella })
   const baseImg = path.basename(srcImg);
   const dstImg = `${plateSolveDir}/${baseImg}`;
   fs.removeSync(plateSolveDir);
-  fs.mkdirpSync(plateSolveDir);
+  fs.ensureDirSync(plateSolveDir);
   fs.copySync(srcImg, dstImg);
 
   // plate solve
@@ -280,7 +280,7 @@ async function startServer(port) {
 //--------------------------------------------------------------------------------
 
 async function main() {
-  fs.mkdirSync(tmpDir);
+  fs.ensureDirSync(tmpDir);
   fs.removeSync(lockFile);
   const localhost = await resolveLocalhost();
   stellariumApi = `http://${localhost}:8090/api`;
