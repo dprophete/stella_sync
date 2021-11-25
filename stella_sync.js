@@ -13,9 +13,10 @@ const path = require("path");
 const { exec } = require("child_process");
 
 const tmpDir = "/tmp/stella_sync";
-const plateSolveDir = `${tmpDir}/platesolve`;
-const uploadDir = `${tmpDir}/upload`;
-const lockFile = `${tmpDir}/stella_sync.lock`;
+const plateSolveDir = `${tmpDir}/platesolve`; // where the server will put the platesolving files
+const downloadDir = `${tmpDir}/download`; // where the server will receive the images
+const uploadDir = `${tmpDir}/upload`; // where the client send the images
+const lockFile = `${tmpDir}/stella_sync.lock`; // a file used to make sure we don't try to process two images at once
 const fovStella = 1;
 
 // will be defined later
@@ -193,7 +194,7 @@ async function plateSolve({ srcImg, raDegStella, decDegStella, fovStella, server
 async function remotePlateSolve({ srcImg, raDegStella, decDegStella, fovStella, server }) {
   log("sending img to remote server for platesolve");
   const dstImg = `${uploadDir}/tmp${path.extname(srcImg)}`;
-  fs.rmSync(dstImg);
+  fs.removeSync(dstImg);
   fs.copySync(srcImg, dstImg);
   let res = await exe(`curl -X POST -F "ra=${raDegStella}" -F "dec=${decDegStella}" -F "fov=${fovStella}" -F "img=@${dstImg}" ${server}/platesolve`);
   let { success, angle, j2000, error } = JSON.parse(res);
@@ -265,13 +266,29 @@ async function processImg(srcImg, server) {
   fs.removeSync(lockFile);
 }
 
+async function processDir(dir, server) {
+  if (!fs.pathExistsSync(dir)) {
+    logError(`dir ${dir} not found -> abort`);
+    process.exit();
+  }
+  log(`watching dir ${ppPath(dir)}`);
+  while (true) {
+    let path = await watch(dir);
+    log(`file changed ${path}`);
+    if (path.endsWith(".fit") || path.endsWith(".png") || path.endsWith(".jpg")) {
+      log(chalk.yellow("--------------------------------------------------------------------------------"));
+      await sleep(1000);
+      processImg(path, server);
+    }
+  }
+}
 //--------------------------------------------------------------------------------
 // server
 //--------------------------------------------------------------------------------
 
 async function startServer(port) {
   const app = express();
-  const upload_middleware = multer({ dest: uploadDir });
+  const upload_middleware = multer({ dest: downloadDir });
 
   app.get("/ping", (req, res) => {
     log("received ping");
@@ -281,7 +298,7 @@ async function startServer(port) {
   app.post("/platesolve", upload_middleware.single("img"), async (req, res) => {
     log(chalk.yellow("--------------------------------------------------------------------------------"));
     log(`received platesolve for ${req.file.originalname} (size: ${Math.round(req.file.size / 1024)}kb)`);
-    const srcImg = `${uploadDir}/${req.file.originalname}`;
+    const srcImg = `${downloadDir}/${req.file.originalname}`;
     fs.moveSync(req.file.path, srcImg, { overwrite: true });
     const raDegStella = parseFloat(req.body.ra);
     const decDegStella = parseFloat(req.body.dec);
@@ -302,6 +319,17 @@ async function startServer(port) {
   });
 }
 
+async function pingServer(server) {
+  log(`will use remote server at ${server} for platesolving`);
+  // try to ping server
+  try {
+    await exe(`curl -s ${server}/ping`);
+  } catch (_) {
+    logError(`server did not respond`);
+    process.exit();
+  }
+}
+
 //--------------------------------------------------------------------------------
 // main
 //--------------------------------------------------------------------------------
@@ -309,40 +337,20 @@ async function startServer(port) {
 async function main() {
   fs.ensureDirSync(tmpDir);
   fs.ensureDirSync(uploadDir);
+  fs.ensureDirSync(downloadDir);
   fs.removeSync(lockFile);
   const localhost = await resolveLocalhost();
   stellariumApi = `http://${localhost}:8090/api`;
 
-  if (argv.server) {
-    log(`will use remote server at ${argv.server} for platesolving`);
-    // try to ping server
-    try {
-      await exe(`curl -s ${argv.server}/ping`);
-    } catch (_) {
-      logError(`server did not respond`);
-      process.exit();
-    }
-  }
+  const server = argv.server;
+  if (server) pingServer(server);
 
   if (argv.img) {
     const img = cleanPath(argv.img);
-    processImg(img, argv.server);
+    processImg(img, server);
   } else if (argv.dir) {
     const dir = cleanPath(argv.dir);
-    if (!fs.pathExistsSync(dir)) {
-      logError(`dir ${argv.dir} not found -> abort`);
-      process.exit();
-    }
-    log(`watching dir ${ppPath(dir)}`);
-    while (true) {
-      let path = await watch(dir);
-      log(`file changed ${path}`);
-      if (path.endsWith(".fit") || path.endsWith(".png") || path.endsWith(".jpg")) {
-        log(chalk.yellow("--------------------------------------------------------------------------------"));
-        await sleep(1000);
-        processImg(path, argv.server);
-      }
-    }
+    processDir(dir, server);
   } else if (argv.port) {
     const port = parseInt(argv.port);
     startServer(port);
