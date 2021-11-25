@@ -9,15 +9,14 @@ const express = require("express");
 const multer = require("multer");
 const chalk = require("chalk");
 const argv = require("minimist")(process.argv.slice(2));
-const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 const os = require("os");
 const path = require("path");
+const { exec } = require("child_process");
 
 const tmpDir = "/tmp/stella_sync";
 const plateSolveDir = `${tmpDir}/platesolve`;
 const uploadDir = `${tmpDir}/upload`;
-const lockFile = "/tmp/stella_sync.lock";
-const { exec } = require("child_process");
+const lockFile = `${tmpDir}/stella_sync.lock`;
 const fovStella = 1;
 
 // will be defined later
@@ -47,11 +46,10 @@ function exe(cmd) {
   });
 }
 
-async function setupAsyncVars() {
+async function resolveLocalhost() {
   // on windows, wsl can't ping localhost (apparently the port mapping in only one way so we
   // have to resolve localhost in a different way)
-  let localhost = (await exe(`hostname -s`)).trim() + ".local";
-  stellariumApi = `http://${localhost}:8090/api`;
+  return (await exe(`hostname -s`)).trim() + ".local";
 }
 
 //--------------------------------------------------------------------------------
@@ -144,8 +142,8 @@ async function play(sound) {
 // return: [ra, dec] (degreees)
 async function getRaDegStella() {
   try {
-    let res = await fetch(`${stellariumApi}/main/view`);
-    let jsonRes = await res.json();
+    let res = await exe(`curl -s ${stellariumApi}/main/view`);
+    let jsonRes = JSON.parse(res);
     let j2000 = JSON.parse(jsonRes["j2000"]);
     let [raDeg, decDeg] = j2000ToDeg(j2000);
     log(`stellarium at: ${ppJ2000(j2000)} -> ra: ${ppDeg(raDeg)}, dec: ${ppDeg(decDeg)}`);
@@ -282,14 +280,16 @@ async function startServer(port) {
 //--------------------------------------------------------------------------------
 
 async function main() {
+  fs.mkdirSync(tmpDir);
   fs.removeSync(lockFile);
+  const localhost = await resolveLocalhost();
+  stellariumApi = `http://${localhost}:8090/api`;
 
-  await setupAsyncVars();
   if (argv.server) {
     log(`will use remote server at ${argv.server} for platesolving`);
     // try to ping server
     try {
-      await fetch(`${argv.server}/ping`);
+      await exe(`curl -s ${argv.server}/ping`);
     } catch (_) {
       logError(`server did not respond`);
       process.exit();
