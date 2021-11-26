@@ -363,7 +363,7 @@ async function main() {
   } else {
     console.log(`usage:
   stella_sync.js --img <img to analyze> [--server <server url>]
-  stella_sync.js --dir <dir to watch> [--pattnern <pathern to watch for>] [--server <server url>]
+  stella_sync.js --dir <dir to watch> [--pattern <pattern to watch for>] [--server <server url>]
   stella_sync.js --port <port>`);
   }
 }
