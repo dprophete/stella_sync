@@ -41,10 +41,9 @@ Here, 2 machines are involved:
 
 examples
 ---
-- `./stella_sync.js --port 9000`: run the platesolving server on port 9000
+- `./stella_sync.js --port 9000`: runs the platesolving server on port 9000
 - `./stella_sync.js --dir ~/shapcap --pattern '*/test/*'`: watches sharpcap dir, but only for targets named 'test' and does the whole platesolving locally
 - `./stella_sync.js --dir ~/shapcap --pattern '*/test/*' --server http://127.20.10.2:9000`: watches sharpcap dir, but only for targets named 'test' and uses a remote server for platesolving
-- `./stella_sync.js --port 9000`: run the platesolving server on port 9000
 - `./stella_sync.js --img ~/shapcap/test/m8.png`: local platesolving for one image
 
 TODO
