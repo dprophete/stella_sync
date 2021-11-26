@@ -76,8 +76,9 @@ async function play(sound) {
 }
 
 // watch a dir and return the last changed file
-async function watch(dir) {
-  let cmd = `find "${dir}" -printf '%T+ %p\n' | sort -r | head -n1`;
+async function watch(dir, pattern) {
+  if (pattern == null) pattern = "*";
+  let cmd = `find "${dir}" -path '${pattern}' -printf '%T+ %p\n' | sort -r | head -n1`;
   let last;
   let current = await exe(cmd);
   while (true) {
@@ -243,19 +244,23 @@ async function moveStellarium(angle, [x, y, z]) {
 // - check with stellarium where we are pointing
 // - use this to platesolve (within 1° of where stellarium is pointing)
 // - move stellarium to exactly where we are (position + rotation)
-async function processImg(srcImg, server) {
-  log(`processing ${ppPath(srcImg)}`);
+async function processImg(img, server) {
+  log(`processing ${ppPath(img)}`);
   if (fs.pathExistsSync(lockFile)) {
     logError(`lockFile ${lockFile} already exists -> abort`);
     return;
   }
-  if (!fs.pathExistsSync(srcImg)) {
-    logError(`image ${srcImg} not found -> abort`);
+  if (!fs.pathExistsSync(img)) {
+    logError(`image ${img} not found -> abort`);
     return;
   }
   fs.ensureFileSync(lockFile);
 
+  const srcImg = `${uploadDir}/tmp${path.extname(img)}`;
+  fs.removeSync(srcImg);
+  fs.copySync(img, srcImg);
   let [raDegStella, decDegStella] = await getRaDegStella();
+
   try {
     let [angle, j2000] = await plateSolve({ srcImg, raDegStella, decDegStella, fovStella, server });
     await moveStellarium(angle, j2000);
@@ -266,14 +271,14 @@ async function processImg(srcImg, server) {
   fs.removeSync(lockFile);
 }
 
-async function processDir(dir, server) {
+async function processDir(dir, server, pattern) {
   if (!fs.pathExistsSync(dir)) {
     logError(`dir ${dir} not found -> abort`);
     process.exit();
   }
   log(`watching dir ${ppPath(dir)}`);
   while (true) {
-    let path = await watch(dir);
+    let path = await watch(dir, pattern);
     log(`file changed ${path}`);
     if (path.endsWith(".fit") || path.endsWith(".png") || path.endsWith(".jpg")) {
       log(chalk.yellow("--------------------------------------------------------------------------------"));
@@ -350,14 +355,15 @@ async function main() {
     processImg(img, server);
   } else if (argv.dir) {
     const dir = cleanPath(argv.dir);
-    processDir(dir, server);
+    const pattern = argv.pattern;
+    processDir(dir, server, pattern);
   } else if (argv.port) {
     const port = parseInt(argv.port);
     startServer(port);
   } else {
     console.log(`usage:
   stella_sync.js --img <img to analyze> [--server <server url>]
-  stella_sync.js --dir <dir to watch> [--server <server url>]
+  stella_sync.js --dir <dir to watch> [--pattnern <pathern to watch for>] [--server <server url>]
   stella_sync.js --port <port>`);
   }
 }
