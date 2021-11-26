@@ -13,7 +13,7 @@ usage
 ---
 ```
 stella_sync.js --img <img to analyze> [--server <server url>]
-stella_sync.js --dir <dir to watch> [--server <server url>]
+stella_sync.js --dir <dir to watch> [--pattern <pattern to watch for>] [--server <server url>]
 stella_sync.js --port <port>
 ```
 
@@ -38,6 +38,14 @@ Here, 2 machines are involved:
 - run `./stella_sync.js --dir <sharpcap img dir> --server <the exact ip/port of the server>`
 - this will monitor the shapcap dir, send the images to the server for platesolving, and then properly center/orient stellarium.
 
+
+examples
+---
+- `./stella_sync.js --port 9000`: run the platesolving server on port 9000
+- `./stella_sync.js --dir ~/shapcap --pattern '*/test/*'`: watches sharpcap dir, but only for targets named 'test' and does the whole platesolving locally
+- `./stella_sync.js --dir ~/shapcap --pattern '*/test/*' --server http://127.20.10.2:9000`: watches sharpcap dir, but only for targets named 'test' and uses a remote server for platesolving
+- `./stella_sync.js --port 9000`: run the platesolving server on port 9000
+- `./stella_sync.js --img ~/shapcap/test/m8.png`: local platesolving for one image
 
 TODO
 ---
