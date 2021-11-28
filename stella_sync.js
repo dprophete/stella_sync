@@ -282,7 +282,7 @@ async function processDir(dir, server, pattern) {
     let path = await watch(dir, pattern);
     log(chalk.yellow("--------------------------------------------------------------------------------"));
     await sleep(500); // make sure the file is fully written (seems that sharpcap takes a little bit of time)
-    processImg(path, server);
+    await processImg(path, server);
   }
 }
 //--------------------------------------------------------------------------------
