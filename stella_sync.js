@@ -45,7 +45,7 @@ function exe(cmd) {
   return new Promise((resolve, reject) => {
     exec(cmd, (error, stdout, stderr) => {
       if (error) reject(error);
-      else resolve(stdout || stderr);
+      else resolve((stdout || stderr || "").trim());
     });
   });
 }
@@ -53,7 +53,7 @@ function exe(cmd) {
 async function resolveLocalhost() {
   // on windows, wsl can't ping localhost (apparently the port mapping in only one way so we
   // have to resolve localhost in a different way)
-  return (await exe(`hostname -s`)).trim() + ".local";
+  return (await exe(`hostname -s`)) + ".local";
 }
 
 function sleep(ms) {
@@ -78,7 +78,8 @@ async function play(sound) {
 // watch a dir and return the last changed file
 async function watch(dir, pattern) {
   if (pattern == null) pattern = "*";
-  let cmd = `find "${dir}" -name '*.png' -path '${pattern}' -printf '%T+ %p\n' | sort -r | head -n1`;
+  let find = fs.pathExistsSync("/opt/homebrew/bin/gfind") ? "gfind" : "find";
+  let cmd = `${find} "${dir}" -name '*.png' -path '${pattern}' -printf '%T+ %p\n' | sort -r | head -n1`;
   let last;
   let current = await exe(cmd);
   while (true) {
@@ -87,7 +88,7 @@ async function watch(dir, pattern) {
     if (last != current) break;
   }
   // last is going to be: <last-modif-date><space><filepath>, so let's only keep the filepath
-  return last.substr(last.indexOf(" ") + 1).trim();
+  return last.substr(last.indexOf(" ") + 1);
 }
 
 //--------------------------------------------------------------------------------
@@ -279,12 +280,9 @@ async function processDir(dir, server, pattern) {
   log(`watching dir ${ppPath(dir)}`);
   while (true) {
     let path = await watch(dir, pattern);
-    log(`file changed ${path}`);
-    if (path.endsWith(".fit") || path.endsWith(".png") || path.endsWith(".jpg")) {
-      log(chalk.yellow("--------------------------------------------------------------------------------"));
-      await sleep(1000);
-      processImg(path, server);
-    }
+    log(chalk.yellow("--------------------------------------------------------------------------------"));
+    await sleep(500); // make sure the file is fully written (seems that sharpcap takes a little bit of time)
+    processImg(path, server);
   }
 }
 //--------------------------------------------------------------------------------
@@ -318,7 +316,7 @@ async function startServer(port) {
     fs.removeSync(srcImg);
   });
 
-  const localIp = (await exe(`ipconfig getifaddr en0`)).trim();
+  const localIp = await exe(`ipconfig getifaddr en0`);
   app.listen(port, () => {
     log(`starting in server mode on http://${localIp}:${port}`);
   });
