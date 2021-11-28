@@ -78,7 +78,7 @@ async function play(sound) {
 // watch a dir and return the last changed file
 async function watch(dir, pattern) {
   if (pattern == null) pattern = "*";
-  let cmd = `find "${dir}" -path '${pattern}' -printf '%T+ %p\n' | sort -r | head -n1`;
+  let cmd = `find "${dir}" -name '*.png' -path '${pattern}' -printf '%T+ %p\n' | sort -r | head -n1`;
   let last;
   let current = await exe(cmd);
   while (true) {
