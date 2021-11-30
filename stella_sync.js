@@ -17,7 +17,7 @@ const plateSolveDir = `${tmpDir}/platesolve`; // where the server will put the p
 const downloadDir = `${tmpDir}/download`; // where the server will receive the images
 const uploadDir = `${tmpDir}/upload`; // where the client send the images
 const lockFile = `${tmpDir}/stella_sync.lock`; // a file used to make sure we don't try to process two images at once
-const fovStella = 1;
+const fovStella = 2;
 
 // will be defined later
 let stellariumApi;
@@ -208,6 +208,8 @@ async function remotePlateSolve({ srcImg, raDegStella, decDegStella, fovStella, 
 }
 
 async function localPlateSolve({ srcImg, raDegStella, decDegStella, fovStella }) {
+  let startDate = new Date().getTime();
+
   // copy img to tmp dst
   const baseImg = path.basename(srcImg);
   const dstImg = `${plateSolveDir}/${baseImg}`;
@@ -231,6 +233,8 @@ async function localPlateSolve({ srcImg, raDegStella, decDegStella, fovStella })
   const angle = (180 - parseFloat(matchAngle[1])) % 360;
   log(`rotation: ${ppDeg(angle)}`);
 
+  let endDate = new Date().getTime();
+  log(`platesolving took ${((endDate - startDate) / 1000).toFixed(2)}s`);
   return [angle, j2000];
 }
 
