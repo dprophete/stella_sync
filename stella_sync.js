@@ -185,6 +185,8 @@ async function getRaDegStella() {
     let jsonRes = JSON.parse(res);
     let j2000 = JSON.parse(jsonRes["j2000"]);
     let [raDeg, decDeg] = j2000ToDeg(j2000);
+    if (raDeg < 0) raDeg += 360;
+    if (decDeg < 0) decDeg += 360;
     log(`stellarium at: ${ppJ2000(j2000)} -> ra: ${ppDeg(raDeg)}, dec: ${ppDeg(decDeg)}`);
     return [raDeg, decDeg];
   } catch (_) {
@@ -237,7 +239,9 @@ async function localPlateSolveAstap({ img, raDegStella, decDegStella, fovSearch 
   const wcs = img.replace(ext, ".wcs");
   // plate solve
   try {
-    await exe(`${astap()} -ra ${raDegStella / 15} -spd ${90 + decDegStella} -r ${fovSearch} -f ${img}`);
+    log(`${astap()} -ra ${raDegStella / 15} -spd ${90 + decDegStella} -r ${fovSearch} -f ${img}`);
+    let output = await exe(`${astap()} -ra ${raDegStella / 15} -spd ${90 + decDegStella} -r ${fovSearch} -f ${img}`);
+    log(output);
   } catch (e) {
     throw "error: couldn't solve for ra/dec";
   }
@@ -259,7 +263,9 @@ async function localPlateSolveAstap({ img, raDegStella, decDegStella, fovSearch 
 
 async function localPlateSolveAstronomyDotNet({ img, raDegStella, decDegStella, fovSearch }) {
   // plate solve
+  log(`solve-field --cpulimit 20 --ra=${raDegStella} --dec=${decDegStella} --radius=${fovSearch} --no-plot ${img}`);
   let res = await exe(`solve-field --cpulimit 20 --ra=${raDegStella} --dec=${decDegStella} --radius=${fovSearch} --no-plot ${img}`);
+  log(res);
 
   // extract result
   const matchRaDec = res.match(/Field center: \(RA,Dec\) = \(([-]?\d+.\d+), ([-]?\d+.\d+)\) deg./);
@@ -322,7 +328,7 @@ async function processDir(dir, server, pattern) {
   while (true) {
     let path = await watch(dir, pattern);
     log(chalk.yellow("--------------------------------------------------------------------------------"));
-    await sleep(200); // make sure the file is fully written (seems that sharpcap takes a little bit of time)
+    await sleep(500); // make sure the file is fully written (seems that sharpcap takes a little bit of time)
     await processImg(path, server);
   }
 }
