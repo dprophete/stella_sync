@@ -17,7 +17,7 @@ const plateSolveDir = `${tmpDir}/platesolve`; // where the server will put the p
 const downloadDir = `${tmpDir}/download`; // where the server will receive the images
 const uploadDir = `${tmpDir}/upload`; // where the client send the images
 const lockFile = `${tmpDir}/stella_sync.lock`; // a file used to make sure we don't try to process two images at once
-const fovStella = 2;
+const fovSearch = 10;
 
 // will be defined later
 let stellariumApi;
@@ -188,17 +188,18 @@ async function getRaDegStella() {
 }
 
 // return: [angle (degrees), j2000]
-async function plateSolve({ srcImg, raDegStella, decDegStella, fovStella, server }) {
-  if (server) return remotePlateSolve({ srcImg, raDegStella, decDegStella, fovStella, server });
-  else return localPlateSolve({ srcImg, raDegStella, decDegStella, fovStella });
+async function plateSolve({ srcImg, raDegStella, decDegStella, fovSearch, server }) {
+  if (server) return remotePlateSolve({ srcImg, raDegStella, decDegStella, fovSearch, server });
+  else return localPlateSolve({ srcImg, raDegStella, decDegStella, fovSearch });
 }
 
-async function remotePlateSolve({ srcImg, raDegStella, decDegStella, fovStella, server }) {
+async function remotePlateSolve({ srcImg, raDegStella, decDegStella, fovSearch, server }) {
   log("sending img to remote server for platesolve");
+  await sleep(500); // make sure the file is fully written (seems that sharpcap takes a little bit of time)
   const dstImg = `${uploadDir}/tmp${path.extname(srcImg)}`;
   fs.removeSync(dstImg);
   fs.copySync(srcImg, dstImg);
-  let res = await exe(`curl -X POST -F "ra=${raDegStella}" -F "dec=${decDegStella}" -F "fov=${fovStella}" -F "img=@${dstImg}" ${server}/platesolve`);
+  let res = await exe(`curl -X POST -F "ra=${raDegStella}" -F "dec=${decDegStella}" -F "fov=${fovSearch}" -F "img=@${dstImg}" ${server}/platesolve`);
   let { success, angle, j2000, error } = JSON.parse(res);
   if (success) {
     log(`solved: ${ppJ2000(j2000)}`);
@@ -207,7 +208,46 @@ async function remotePlateSolve({ srcImg, raDegStella, decDegStella, fovStella, 
   } else throw error;
 }
 
-async function localPlateSolve({ srcImg, raDegStella, decDegStella, fovStella }) {
+async function localPlateSolve2({ srcImg, raDegStella, decDegStella, fovSearch }) {
+  let startDate = new Date().getTime();
+
+  // copy img to tmp dst
+  const baseImg = path.basename(srcImg);
+  const dstImg = `${plateSolveDir}/${baseImg}`;
+  const ext = path.extname(dstImg);
+  const dstWcs = dstImg.replace(ext, ".wcs");
+  fs.removeSync(plateSolveDir);
+  fs.ensureDirSync(plateSolveDir);
+  fs.copySync(srcImg, dstImg);
+
+  // plate solve
+  log(`/Applications/ASTAP.app/Contents/MacOS/astap -ra ${raDegStella} -spd ${90 + decDegStella} -r ${fovSearch} -f ${dstImg}`);
+  try {
+    await exe(`/Applications/ASTAP.app/Contents/MacOS/astap -ra ${raDegStella} -spd ${90 + decDegStella} -r ${fovSearch} -f ${dstImg}`);
+  }
+  catch (e) {
+    throw "error: couldn't solve for ra/dec";
+  }
+  fs.readFileSync(dstWcs).trim();
+
+  throw "not implemented";
+  //const matchRaDec = res.match(/Field center: \(RA,Dec\) = \(([-]?\d+.\d+), ([-]?\d+.\d+)\) deg./);
+  //if (matchRaDec == null) throw "error: couldn't solve for ra/dec";
+  //const raDeg = parseFloat(matchRaDec[1]);
+  //const decDeg = parseFloat(matchRaDec[2]);
+  //let j2000 = degToJ2000(raDeg, decDeg);
+  //log(`solved: ra: ${ppDeg(raDeg)}, dec: ${ppDeg(decDeg)} -> ${ppJ2000(j2000)}`);
+
+  //const matchAngle = res.match(/Field rotation angle: up is ([-]?\d+.\d+) degrees/);
+  //if (matchAngle == null) throw "error: couldn't solve for angle";
+  //const angle = (180 - parseFloat(matchAngle[1])) % 360;
+  //log(`rotation: ${ppDeg(angle)}`);
+
+  //let endDate = new Date().getTime();
+  //log(`platesolving took ${((endDate - startDate) / 1000).toFixed(2)}s`);
+  //return [angle, j2000];
+}
+async function localPlateSolve({ srcImg, raDegStella, decDegStella, fovSearch }) {
   let startDate = new Date().getTime();
 
   // copy img to tmp dst
@@ -218,7 +258,8 @@ async function localPlateSolve({ srcImg, raDegStella, decDegStella, fovStella })
   fs.copySync(srcImg, dstImg);
 
   // plate solve
-  let res = await exe(`solve-field --cpulimit 20 --ra=${raDegStella} --dec=${decDegStella} --radius=${fovStella} --no-plot ${dstImg}`);
+  log(`cmd: solve-field --cpulimit 20 --ra=${raDegStella} --dec=${decDegStella} --radius=${fovSearch} --no-plot ${dstImg}`);
+  let res = await exe(`solve-field --cpulimit 20 --ra=${raDegStella} --dec=${decDegStella} --radius=${fovSearch} --no-plot ${dstImg}`);
 
   // extract result
   const matchRaDec = res.match(/Field center: \(RA,Dec\) = \(([-]?\d+.\d+), ([-]?\d+.\d+)\) deg./);
@@ -267,7 +308,7 @@ async function processImg(img, server) {
   let [raDegStella, decDegStella] = await getRaDegStella();
 
   try {
-    let [angle, j2000] = await plateSolve({ srcImg, raDegStella, decDegStella, fovStella, server });
+    let [angle, j2000] = await plateSolve({ srcImg, raDegStella, decDegStella, fovSearch, server });
     await moveStellarium(angle, j2000);
     await play("/System/Library/Sounds/Purr.aiff");
   } catch (e) {
@@ -285,7 +326,6 @@ async function processDir(dir, server, pattern) {
   while (true) {
     let path = await watch(dir, pattern);
     log(chalk.yellow("--------------------------------------------------------------------------------"));
-    //await sleep(500); // make sure the file is fully written (seems that sharpcap takes a little bit of time)
     await processImg(path, server);
   }
 }
@@ -309,9 +349,9 @@ async function startServer(port) {
     fs.moveSync(req.file.path, srcImg, { overwrite: true });
     const raDegStella = parseFloat(req.body.ra);
     const decDegStella = parseFloat(req.body.dec);
-    const fovStella = parseFloat(req.body.fov);
+    const fovSearch = parseFloat(req.body.fov);
     try {
-      let [angle, j2000] = await localPlateSolve({ srcImg, raDegStella, decDegStella, fovStella });
+      let [angle, j2000] = await localPlateSolve({ srcImg, raDegStella, decDegStella, fovSearch });
       res.json({ success: true, angle, j2000 });
     } catch (e) {
       logError(e);
