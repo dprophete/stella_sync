@@ -17,7 +17,7 @@ const plateSolveDir = `${tmpDir}/platesolve`; // where the server will put the p
 const downloadDir = `${tmpDir}/download`; // where the server will receive the images
 const uploadDir = `${tmpDir}/upload`; // where the client send the images
 const lockFile = `${tmpDir}/stella_sync.lock`; // a file used to make sure we don't try to process two images at once
-const fovSearch = 10;
+const fovSearch = 25;
 
 // will be defined later
 let stellariumApi;
@@ -54,6 +54,12 @@ async function resolveLocalhost() {
   // on windows, wsl can't ping localhost (apparently the port mapping in only one way so we
   // have to resolve localhost in a different way)
   return (await exe(`hostname -s`)) + ".local";
+}
+
+function astap() {
+    if (fs.pathExistsSync('/Applications/ASTAP.app/Contents/MacOS/astap'))
+        return '/Applications/ASTAP.app/Contents/MacOS/astap';
+    return '/mnt/c/Program Files/astap/astap.exe'
 }
 
 function sleep(ms) {
@@ -190,7 +196,7 @@ async function getRaDegStella() {
 // return: [angle (degrees), j2000]
 async function plateSolve({ srcImg, raDegStella, decDegStella, fovSearch, server }) {
   if (server) return remotePlateSolve({ srcImg, raDegStella, decDegStella, fovSearch, server });
-  else return localPlateSolve({ srcImg, raDegStella, decDegStella, fovSearch });
+  else return localPlateSolve2({ srcImg, raDegStella, decDegStella, fovSearch });
 }
 
 async function remotePlateSolve({ srcImg, raDegStella, decDegStella, fovSearch, server }) {
@@ -209,8 +215,6 @@ async function remotePlateSolve({ srcImg, raDegStella, decDegStella, fovSearch, 
 }
 
 async function localPlateSolve2({ srcImg, raDegStella, decDegStella, fovSearch }) {
-  let startDate = new Date().getTime();
-
   // copy img to tmp dst
   const baseImg = path.basename(srcImg);
   const dstImg = `${plateSolveDir}/${baseImg}`;
@@ -221,35 +225,29 @@ async function localPlateSolve2({ srcImg, raDegStella, decDegStella, fovSearch }
   fs.copySync(srcImg, dstImg);
 
   // plate solve
-  log(`/Applications/ASTAP.app/Contents/MacOS/astap -ra ${raDegStella} -spd ${90 + decDegStella} -r ${fovSearch} -f ${dstImg}`);
   try {
-    await exe(`/Applications/ASTAP.app/Contents/MacOS/astap -ra ${raDegStella} -spd ${90 + decDegStella} -r ${fovSearch} -f ${dstImg}`);
-  }
-  catch (e) {
+    await exe(`${astap()} -ra ${raDegStella / 15} -spd ${90 + decDegStella} -r ${fovSearch} -f ${dstImg}`);
+  } catch (e) {
     throw "error: couldn't solve for ra/dec";
   }
-  fs.readFileSync(dstWcs).trim();
+  let values = {};
+  let res = await exe(`cat ${dstWcs}`);
+  res.split("\n").forEach((line) => {
+    let parts = line.slice(0, line.indexOf(" / ")).split("=");
+    if (parts.length == 2) values[parts[0].trim()] = parts[1].trim();
+  });
+  const raDeg = parseFloat(values['CRVAL1']);
+  const decDeg = parseFloat(values['CRVAL2']);
 
-  throw "not implemented";
-  //const matchRaDec = res.match(/Field center: \(RA,Dec\) = \(([-]?\d+.\d+), ([-]?\d+.\d+)\) deg./);
-  //if (matchRaDec == null) throw "error: couldn't solve for ra/dec";
-  //const raDeg = parseFloat(matchRaDec[1]);
-  //const decDeg = parseFloat(matchRaDec[2]);
-  //let j2000 = degToJ2000(raDeg, decDeg);
-  //log(`solved: ra: ${ppDeg(raDeg)}, dec: ${ppDeg(decDeg)} -> ${ppJ2000(j2000)}`);
+  let j2000 = degToJ2000(raDeg, decDeg);
+  log(`solved: ra: ${ppDeg(raDeg)}, dec: ${ppDeg(decDeg)} -> ${ppJ2000(j2000)}`);
 
-  //const matchAngle = res.match(/Field rotation angle: up is ([-]?\d+.\d+) degrees/);
-  //if (matchAngle == null) throw "error: couldn't solve for angle";
-  //const angle = (180 - parseFloat(matchAngle[1])) % 360;
-  //log(`rotation: ${ppDeg(angle)}`);
+  const angle = 180 - parseFloat(values['CROTA1']);
+  log(`rotation: ${ppDeg(angle)}`);
 
-  //let endDate = new Date().getTime();
-  //log(`platesolving took ${((endDate - startDate) / 1000).toFixed(2)}s`);
-  //return [angle, j2000];
+  return [angle, j2000];
 }
 async function localPlateSolve({ srcImg, raDegStella, decDegStella, fovSearch }) {
-  let startDate = new Date().getTime();
-
   // copy img to tmp dst
   const baseImg = path.basename(srcImg);
   const dstImg = `${plateSolveDir}/${baseImg}`;
@@ -274,8 +272,6 @@ async function localPlateSolve({ srcImg, raDegStella, decDegStella, fovSearch })
   const angle = (180 - parseFloat(matchAngle[1])) % 360;
   log(`rotation: ${ppDeg(angle)}`);
 
-  let endDate = new Date().getTime();
-  log(`platesolving took ${((endDate - startDate) / 1000).toFixed(2)}s`);
   return [angle, j2000];
 }
 
@@ -308,7 +304,10 @@ async function processImg(img, server) {
   let [raDegStella, decDegStella] = await getRaDegStella();
 
   try {
+    let startDate = new Date().getTime();
     let [angle, j2000] = await plateSolve({ srcImg, raDegStella, decDegStella, fovSearch, server });
+    let endDate = new Date().getTime();
+    log(`platesolving took ${((endDate - startDate) / 1000).toFixed(2)}s`);
     await moveStellarium(angle, j2000);
     await play("/System/Library/Sounds/Purr.aiff");
   } catch (e) {
