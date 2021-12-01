@@ -17,7 +17,7 @@ const plateSolveDir = `${tmpDir}/platesolve`; // where the server will put the p
 const downloadDir = `${tmpDir}/download`; // where the server will receive the images
 const uploadDir = `${tmpDir}/upload`; // where the client send the images
 const lockFile = `${tmpDir}/stella_sync.lock`; // a file used to make sure we don't try to process two images at once
-const fovSearch = 25;
+const fovSearch = 30;
 const useAstap = true;
 
 // will be defined later
@@ -85,7 +85,7 @@ async function play(sound) {
 async function watch(dir, pattern) {
   if (pattern == null) pattern = "*";
   let find = fs.pathExistsSync("/opt/homebrew/bin/gfind") ? "gfind" : "find";
-  let cmd = `${find} "${dir}" \\( -name '*.png' -o -name '*.fit' \\) -path '${pattern}' -printf '%T+ %p\n' | sort -r | head -n1`;
+  let cmd = `${find} "${dir}" \\( -name '*.jpg' -o -name '*.png' -o -name '*.fit' \\) -path '${pattern}' -printf '%T+ %p\n' | sort -r | head -n1`;
   let last;
   let current = await exe(cmd);
   while (true) {
@@ -322,7 +322,7 @@ async function processDir(dir, server, pattern) {
   while (true) {
     let path = await watch(dir, pattern);
     log(chalk.yellow("--------------------------------------------------------------------------------"));
-    await sleep(100); // make sure the file is fully written (seems that sharpcap takes a little bit of time)
+    await sleep(200); // make sure the file is fully written (seems that sharpcap takes a little bit of time)
     await processImg(path, server);
   }
 }
