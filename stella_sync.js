@@ -18,6 +18,7 @@ const downloadDir = `${tmpDir}/download`; // where the server will receive the i
 const uploadDir = `${tmpDir}/upload`; // where the client send the images
 const lockFile = `${tmpDir}/stella_sync.lock`; // a file used to make sure we don't try to process two images at once
 const fovSearch = 25;
+const useAstap = true;
 
 // will be defined later
 let stellariumApi;
@@ -57,9 +58,8 @@ async function resolveLocalhost() {
 }
 
 function astap() {
-    if (fs.pathExistsSync('/Applications/ASTAP.app/Contents/MacOS/astap'))
-        return '/Applications/ASTAP.app/Contents/MacOS/astap';
-    return '/mnt/c/Program Files/astap/astap.exe'
+  if (fs.pathExistsSync("/Applications/ASTAP.app/Contents/MacOS/astap")) return "/Applications/ASTAP.app/Contents/MacOS/astap";
+  return "/mnt/c/Program\\ Files/astap/astap.exe";
 }
 
 function sleep(ms) {
@@ -193,71 +193,73 @@ async function getRaDegStella() {
   }
 }
 
+// params is: { srcImg, raDegStella, decDegStella, fovSearch, server }
 // return: [angle (degrees), j2000]
-async function plateSolve({ srcImg, raDegStella, decDegStella, fovSearch, server }) {
-  if (server) return remotePlateSolve({ srcImg, raDegStella, decDegStella, fovSearch, server });
-  else return localPlateSolve2({ srcImg, raDegStella, decDegStella, fovSearch });
+async function plateSolve(params) {
+  let startDate = new Date().getTime();
+  const [angle, raDeg, decDeg] = params.server ? await remotePlateSolve(params) : await localPlateSolve(params);
+  let endDate = new Date().getTime();
+  log(`platesolving took ${((endDate - startDate) / 1000).toFixed(2)}s`);
+
+  const j2000 = degToJ2000(raDeg, decDeg);
+  log(`solved: ra: ${ppDeg(raDeg)}, dec: ${ppDeg(decDeg)} -> ${ppJ2000(j2000)}`);
+  log(`rotation: ${ppDeg(angle)}`);
+  return [angle, j2000];
 }
 
+// send image to remote server for platesolving
 async function remotePlateSolve({ srcImg, raDegStella, decDegStella, fovSearch, server }) {
   log("sending img to remote server for platesolve");
-  await sleep(500); // make sure the file is fully written (seems that sharpcap takes a little bit of time)
   const dstImg = `${uploadDir}/tmp${path.extname(srcImg)}`;
   fs.removeSync(dstImg);
   fs.copySync(srcImg, dstImg);
   let res = await exe(`curl -X POST -F "ra=${raDegStella}" -F "dec=${decDegStella}" -F "fov=${fovSearch}" -F "img=@${dstImg}" ${server}/platesolve`);
-  let { success, angle, j2000, error } = JSON.parse(res);
-  if (success) {
-    log(`solved: ${ppJ2000(j2000)}`);
-    log(`rotation: ${ppDeg(angle)}`);
-    return [angle, j2000];
-  } else throw error;
+  let { success, angle, raDeg, decDeg, error } = JSON.parse(res);
+  if (success) return [angle, raDeg, decDeg];
+  throw error;
 }
 
-async function localPlateSolve2({ srcImg, raDegStella, decDegStella, fovSearch }) {
+async function localPlateSolve({ srcImg, raDegStella, decDegStella, fovSearch }) {
   // copy img to tmp dst
   const baseImg = path.basename(srcImg);
-  const dstImg = `${plateSolveDir}/${baseImg}`;
-  const ext = path.extname(dstImg);
-  const dstWcs = dstImg.replace(ext, ".wcs");
+  const img = `${plateSolveDir}/${baseImg}`;
   fs.removeSync(plateSolveDir);
   fs.ensureDirSync(plateSolveDir);
-  fs.copySync(srcImg, dstImg);
+  fs.copySync(srcImg, img);
 
+  if (useAstap) return localPlateSolveAstap({ img, raDegStella, decDegStella, fovSearch });
+  else return localPlateSolveAstronomyDotNet({ img, raDegStella, decDegStella, fovSearch });
+}
+
+async function localPlateSolveAstap({ img, raDegStella, decDegStella, fovSearch }) {
+  const ext = path.extname(img);
+
+  const wcs = img.replace(ext, ".wcs");
   // plate solve
   try {
-    await exe(`${astap()} -ra ${raDegStella / 15} -spd ${90 + decDegStella} -r ${fovSearch} -f ${dstImg}`);
+    await exe(`${astap()} -ra ${raDegStella / 15} -spd ${90 + decDegStella} -r ${fovSearch} -f ${img}`);
   } catch (e) {
     throw "error: couldn't solve for ra/dec";
   }
-  let values = {};
-  let res = await exe(`cat ${dstWcs}`);
+
+  // extract result
+  let values = {}; // hashmap of values from the wcs file
+  let res = await exe(`cat ${wcs}`);
   res.split("\n").forEach((line) => {
     let parts = line.slice(0, line.indexOf(" / ")).split("=");
     if (parts.length == 2) values[parts[0].trim()] = parts[1].trim();
   });
-  const raDeg = parseFloat(values['CRVAL1']);
-  const decDeg = parseFloat(values['CRVAL2']);
 
-  let j2000 = degToJ2000(raDeg, decDeg);
-  log(`solved: ra: ${ppDeg(raDeg)}, dec: ${ppDeg(decDeg)} -> ${ppJ2000(j2000)}`);
+  const raDeg = parseFloat(values["CRVAL1"]);
+  const decDeg = parseFloat(values["CRVAL2"]);
+  const angle = 180 - parseFloat(values["CROTA1"]);
 
-  const angle = 180 - parseFloat(values['CROTA1']);
-  log(`rotation: ${ppDeg(angle)}`);
-
-  return [angle, j2000];
+  return [angle, raDeg, decDeg];
 }
-async function localPlateSolve({ srcImg, raDegStella, decDegStella, fovSearch }) {
-  // copy img to tmp dst
-  const baseImg = path.basename(srcImg);
-  const dstImg = `${plateSolveDir}/${baseImg}`;
-  fs.removeSync(plateSolveDir);
-  fs.ensureDirSync(plateSolveDir);
-  fs.copySync(srcImg, dstImg);
 
+async function localPlateSolveAstronomyDotNet({ img, raDegStella, decDegStella, fovSearch }) {
   // plate solve
-  log(`cmd: solve-field --cpulimit 20 --ra=${raDegStella} --dec=${decDegStella} --radius=${fovSearch} --no-plot ${dstImg}`);
-  let res = await exe(`solve-field --cpulimit 20 --ra=${raDegStella} --dec=${decDegStella} --radius=${fovSearch} --no-plot ${dstImg}`);
+  let res = await exe(`solve-field --cpulimit 20 --ra=${raDegStella} --dec=${decDegStella} --radius=${fovSearch} --no-plot ${img}`);
 
   // extract result
   const matchRaDec = res.match(/Field center: \(RA,Dec\) = \(([-]?\d+.\d+), ([-]?\d+.\d+)\) deg./);
@@ -265,12 +267,10 @@ async function localPlateSolve({ srcImg, raDegStella, decDegStella, fovSearch })
   const raDeg = parseFloat(matchRaDec[1]);
   const decDeg = parseFloat(matchRaDec[2]);
   let j2000 = degToJ2000(raDeg, decDeg);
-  log(`solved: ra: ${ppDeg(raDeg)}, dec: ${ppDeg(decDeg)} -> ${ppJ2000(j2000)}`);
 
   const matchAngle = res.match(/Field rotation angle: up is ([-]?\d+.\d+) degrees/);
   if (matchAngle == null) throw "error: couldn't solve for angle";
   const angle = (180 - parseFloat(matchAngle[1])) % 360;
-  log(`rotation: ${ppDeg(angle)}`);
 
   return [angle, j2000];
 }
@@ -304,10 +304,7 @@ async function processImg(img, server) {
   let [raDegStella, decDegStella] = await getRaDegStella();
 
   try {
-    let startDate = new Date().getTime();
     let [angle, j2000] = await plateSolve({ srcImg, raDegStella, decDegStella, fovSearch, server });
-    let endDate = new Date().getTime();
-    log(`platesolving took ${((endDate - startDate) / 1000).toFixed(2)}s`);
     await moveStellarium(angle, j2000);
     await play("/System/Library/Sounds/Purr.aiff");
   } catch (e) {
@@ -325,6 +322,7 @@ async function processDir(dir, server, pattern) {
   while (true) {
     let path = await watch(dir, pattern);
     log(chalk.yellow("--------------------------------------------------------------------------------"));
+    await sleep(100); // make sure the file is fully written (seems that sharpcap takes a little bit of time)
     await processImg(path, server);
   }
 }
@@ -350,8 +348,8 @@ async function startServer(port) {
     const decDegStella = parseFloat(req.body.dec);
     const fovSearch = parseFloat(req.body.fov);
     try {
-      let [angle, j2000] = await localPlateSolve({ srcImg, raDegStella, decDegStella, fovSearch });
-      res.json({ success: true, angle, j2000 });
+      let [angle, raDeg, decDeg] = await localPlateSolve({ srcImg, raDegStella, decDegStella, fovSearch });
+      res.json({ success: true, angle, raDeg, decDeg });
     } catch (e) {
       logError(e);
       res.json({ success: false, error: e.toString() });
