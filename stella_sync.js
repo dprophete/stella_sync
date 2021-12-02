@@ -17,8 +17,7 @@ const plateSolveDir = `${tmpDir}/platesolve`; // where the server will put the p
 const downloadDir = `${tmpDir}/download`; // where the server will receive the images
 const uploadDir = `${tmpDir}/upload`; // where the client send the images
 const lockFile = `${tmpDir}/stella_sync.lock`; // a file used to make sure we don't try to process two images at once
-const fovSearch = 30;
-const useAstap = true;
+let useAstap = true;
 
 // will be defined later
 let stellariumApi;
@@ -195,7 +194,7 @@ async function getRaDegStella() {
   }
 }
 
-// params is: { srcImg, raDegStella, decDegStella, fovSearch, server }
+// params is: { srcImg, raDegStella, decDegStella, searchRadius, fovStella, server }
 // return: [angle (degrees), j2000]
 async function plateSolve(params) {
   let startDate = new Date().getTime();
@@ -210,18 +209,18 @@ async function plateSolve(params) {
 }
 
 // send image to remote server for platesolving
-async function remotePlateSolve({ srcImg, raDegStella, decDegStella, fovSearch, server }) {
+async function remotePlateSolve({ srcImg, raDegStella, decDegStella, searchRadius, fovStella, server }) {
   log("sending img to remote server for platesolve");
   const dstImg = `${uploadDir}/tmp${path.extname(srcImg)}`;
   fs.removeSync(dstImg);
   fs.copySync(srcImg, dstImg);
-  let res = await exe(`curl -X POST -F "ra=${raDegStella}" -F "dec=${decDegStella}" -F "fov=${fovSearch}" -F "img=@${dstImg}" ${server}/platesolve`);
+  let res = await exe(`curl -X POST -F "ra=${raDegStella}" -F "dec=${decDegStella}" -F "seach=${searchRadius}" -F "fov=${fovStella}" -F "img=@${dstImg}" ${server}/platesolve`);
   let { success, angle, raDeg, decDeg, error } = JSON.parse(res);
   if (success) return [angle, raDeg, decDeg];
   throw error;
 }
 
-async function localPlateSolve({ srcImg, raDegStella, decDegStella, fovSearch }) {
+async function localPlateSolve({ srcImg, raDegStella, decDegStella, searchRadius, fovStella }) {
   // copy img to tmp dst
   const baseImg = path.basename(srcImg);
   const img = `${plateSolveDir}/${baseImg}`;
@@ -229,19 +228,17 @@ async function localPlateSolve({ srcImg, raDegStella, decDegStella, fovSearch })
   fs.ensureDirSync(plateSolveDir);
   fs.copySync(srcImg, img);
 
-  if (useAstap) return localPlateSolveAstap({ img, raDegStella, decDegStella, fovSearch });
-  else return localPlateSolveAstronomyDotNet({ img, raDegStella, decDegStella, fovSearch });
+  if (useAstap) return localPlateSolveAstap({ img, raDegStella, decDegStella, searchRadius, fovStella });
+  else return localPlateSolveAstronomyDotNet({ img, raDegStella, decDegStella, searchRadius, fovStella });
 }
 
-async function localPlateSolveAstap({ img, raDegStella, decDegStella, fovSearch }) {
+async function localPlateSolveAstap({ img, raDegStella, decDegStella, searchRadius, fovStella }) {
   const ext = path.extname(img);
 
   const wcs = img.replace(ext, ".wcs");
   // plate solve
   try {
-    log(`${astap()} -ra ${raDegStella / 15} -spd ${90 + decDegStella} -r ${fovSearch} -f ${img}`);
-    let output = await exe(`${astap()} -ra ${raDegStella / 15} -spd ${90 + decDegStella} -r ${fovSearch} -f ${img}`);
-    log(output);
+    let output = await exe(`${astap()} -ra ${raDegStella / 15} -spd ${90 + decDegStella} -fov ${fovStella} -r ${searchRadius} -f ${img}`);
   } catch (e) {
     throw "error: couldn't solve for ra/dec";
   }
@@ -261,24 +258,21 @@ async function localPlateSolveAstap({ img, raDegStella, decDegStella, fovSearch 
   return [angle, raDeg, decDeg];
 }
 
-async function localPlateSolveAstronomyDotNet({ img, raDegStella, decDegStella, fovSearch }) {
+async function localPlateSolveAstronomyDotNet({ img, raDegStella, decDegStella, searchRadius, fovStella }) {
   // plate solve
-  log(`solve-field --cpulimit 20 --ra=${raDegStella} --dec=${decDegStella} --radius=${fovSearch} --no-plot ${img}`);
-  let res = await exe(`solve-field --cpulimit 20 --ra=${raDegStella} --dec=${decDegStella} --radius=${fovSearch} --no-plot ${img}`);
-  log(res);
+  let res = await exe(`solve-field --cpulimit 20 --ra=${raDegStella} --dec=${decDegStella} --radius=${searchRadius} --no-plot ${img}`);
 
   // extract result
   const matchRaDec = res.match(/Field center: \(RA,Dec\) = \(([-]?\d+.\d+), ([-]?\d+.\d+)\) deg./);
   if (matchRaDec == null) throw "error: couldn't solve for ra/dec";
   const raDeg = parseFloat(matchRaDec[1]);
   const decDeg = parseFloat(matchRaDec[2]);
-  let j2000 = degToJ2000(raDeg, decDeg);
 
   const matchAngle = res.match(/Field rotation angle: up is ([-]?\d+.\d+) degrees/);
   if (matchAngle == null) throw "error: couldn't solve for angle";
   const angle = (180 - parseFloat(matchAngle[1])) % 360;
 
-  return [angle, j2000];
+  return [angle, raDeg, decDeg];
 }
 
 // move stellarium
@@ -292,7 +286,7 @@ async function moveStellarium(angle, [x, y, z]) {
 // - check with stellarium where we are pointing
 // - use this to platesolve (within 1° of where stellarium is pointing)
 // - move stellarium to exactly where we are (position + rotation)
-async function processImg(img, server) {
+async function processImg(img, searchRadius, fovStella, server) {
   log(`processing ${ppPath(img)}`);
   if (fs.pathExistsSync(lockFile)) {
     logError(`lockFile ${lockFile} already exists -> abort`);
@@ -310,7 +304,7 @@ async function processImg(img, server) {
   let [raDegStella, decDegStella] = await getRaDegStella();
 
   try {
-    let [angle, j2000] = await plateSolve({ srcImg, raDegStella, decDegStella, fovSearch, server });
+    let [angle, j2000] = await plateSolve({ srcImg, raDegStella, decDegStella, searchRadius, fovStella, server });
     await moveStellarium(angle, j2000);
     await play("/System/Library/Sounds/Purr.aiff");
   } catch (e) {
@@ -319,7 +313,7 @@ async function processImg(img, server) {
   fs.removeSync(lockFile);
 }
 
-async function processDir(dir, server, pattern) {
+async function processDir(dir, searchRadius, fovStella, server, pattern) {
   if (!fs.pathExistsSync(dir)) {
     logError(`dir ${dir} not found -> abort`);
     process.exit();
@@ -329,7 +323,7 @@ async function processDir(dir, server, pattern) {
     let path = await watch(dir, pattern);
     log(chalk.yellow("--------------------------------------------------------------------------------"));
     await sleep(500); // make sure the file is fully written (seems that sharpcap takes a little bit of time)
-    await processImg(path, server);
+    await processImg(path, searchRadius, fovStella, server);
   }
 }
 //--------------------------------------------------------------------------------
@@ -352,9 +346,10 @@ async function startServer(port) {
     fs.moveSync(req.file.path, srcImg, { overwrite: true });
     const raDegStella = parseFloat(req.body.ra);
     const decDegStella = parseFloat(req.body.dec);
-    const fovSearch = parseFloat(req.body.fov);
+    const searchRadius = parseFloat(req.body.search);
+    const fovStella = parseFloat(req.body.fov);
     try {
-      let [angle, raDeg, decDeg] = await localPlateSolve({ srcImg, raDegStella, decDegStella, fovSearch });
+      let [angle, raDeg, decDeg] = await localPlateSolve({ srcImg, raDegStella, decDegStella, searchRadius, fovStella });
       res.json({ success: true, angle, raDeg, decDeg });
     } catch (e) {
       logError(e);
@@ -392,16 +387,23 @@ async function main() {
   const localhost = await resolveLocalhost();
   stellariumApi = `http://${localhost}:8090/api`;
 
+  const fovStella = parseFloat(argv.fov || 1);
+  const searchRadius = parseInt(argv.search || 30);
+  useAstap = argv.useAstap != "false";
+  log(`using useAstap ${useAstap}`);
+  log(`using fovStella ${fovStella}`);
+  log(`using searchRadius ${searchRadius}`);
+
   const server = argv.server;
   if (server) pingServer(server);
 
   if (argv.img) {
     const img = cleanPath(argv.img);
-    processImg(img, server);
+    processImg(img, searchRadius, fovStella, server);
   } else if (argv.dir) {
     const dir = cleanPath(argv.dir);
     const pattern = argv.pattern;
-    processDir(dir, server, pattern);
+    processDir(dir, searchRadius, fovStella, server, pattern);
   } else if (argv.port) {
     const port = parseInt(argv.port);
     startServer(port);
