@@ -129,7 +129,13 @@ function degToJ2000(raDeg, decDeg) {
 
 // [x, y, z] (j2000) -> ra/dec (degrees)
 function j2000ToDeg([x, y, z]) {
-  return [radToDeg(atan2(y, x)), radToDeg(asin(z))];
+  return [between0and360(radToDeg(atan2(y, x))), between0and360(radToDeg(asin(z)))];
+}
+
+function between0and360(deg) {
+  deg = deg % 360;
+  if (deg < 0) deg += 360;
+  return deg;
 }
 
 //--------------------------------------------------------------------------------
@@ -184,8 +190,6 @@ async function getRaDegStella() {
     let jsonRes = JSON.parse(res);
     let j2000 = JSON.parse(jsonRes["j2000"]);
     let [raDeg, decDeg] = j2000ToDeg(j2000);
-    if (raDeg < 0) raDeg += 360;
-    if (decDeg < 0) decDeg += 360;
     log(`stellarium at: ${ppJ2000(j2000)} -> ra: ${ppDeg(raDeg)}, dec: ${ppDeg(decDeg)}`);
     return [raDeg, decDeg];
   } catch (_) {
@@ -270,7 +274,7 @@ async function localPlateSolveAstronomyDotNet({ img, raDegStella, decDegStella, 
 
   const matchAngle = res.match(/Field rotation angle: up is ([-]?\d+.\d+) degrees/);
   if (matchAngle == null) throw "error: couldn't solve for angle";
-  const angle = (180 - parseFloat(matchAngle[1])) % 360;
+  const angle = between0and360(180 - parseFloat(matchAngle[1]));
 
   return [angle, raDeg, decDeg];
 }
