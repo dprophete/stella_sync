@@ -129,10 +129,10 @@ function degToJ2000(raDeg, decDeg) {
 
 // [x, y, z] (j2000) -> ra/dec (degrees)
 function j2000ToDeg([x, y, z]) {
-  return [between0and360(radToDeg(atan2(y, x))), between0and360(radToDeg(asin(z)))];
+  return [normalizeDeg(radToDeg(atan2(y, x))), normalizeDeg(radToDeg(asin(z)))];
 }
 
-function between0and360(deg) {
+function normalizeDeg(deg) {
   deg = deg % 360;
   if (deg < 0) deg += 360;
   return deg;
@@ -257,7 +257,7 @@ async function localPlateSolveAstap({ img, raDegStella, decDegStella, searchRadi
 
   const raDeg = parseFloat(values["CRVAL1"]);
   const decDeg = parseFloat(values["CRVAL2"]);
-  const angle = 180 - parseFloat(values["CROTA1"]);
+  const angle = normalizeDeg(180 - parseFloat(values["CROTA1"]));
 
   return [angle, raDeg, decDeg];
 }
@@ -274,7 +274,7 @@ async function localPlateSolveAstronomyDotNet({ img, raDegStella, decDegStella, 
 
   const matchAngle = res.match(/Field rotation angle: up is ([-]?\d+.\d+) degrees/);
   if (matchAngle == null) throw "error: couldn't solve for angle";
-  const angle = between0and360(180 - parseFloat(matchAngle[1]));
+  const angle = normalizeDeg(180 - parseFloat(matchAngle[1]));
 
   return [angle, raDeg, decDeg];
 }
