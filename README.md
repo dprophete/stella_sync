@@ -12,9 +12,15 @@ install
 usage
 ---
 ```
-stella_sync.js --img <img to analyze> [--server <server url>]
-stella_sync.js --dir <dir to watch> [--pattern <pattern to watch for>] [--server <server url>]
-stella_sync.js --port <port>
+stella_sync.js --img <img to analyze> [options]
+stella_sync.js --dir <dir to watch> [options]
+stella_sync.js --port <port> [options]
+
+options:
+  --radius: search radius in degrees, default 15
+  --fov: fov of the camera in degrees, default 15
+  --astap | astro: use astap or astronomy.net for platesolving, default astap
+  --server: an optional server url
 ```
 
 standalone mode
