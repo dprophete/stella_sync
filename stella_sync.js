@@ -17,7 +17,14 @@ const plateSolveDir = `${tmpDir}/platesolve`; // where the server will put the p
 const downloadDir = `${tmpDir}/download`; // where the server will receive the images
 const uploadDir = `${tmpDir}/upload`; // where the client send the images
 const lockFile = `${tmpDir}/stella_sync.lock`; // a file used to make sure we don't try to process two images at once
-let useAstap = true;
+
+let useAstap = true; // you can change this on the cmd line with --astro or --astap
+// defaults for astap
+const astapFov = 1;
+const astapSearch = 25;
+// default for astrometry.net
+const astroFov = 1;
+const astroSearch = 2;
 
 // will be defined later
 let stellariumApi;
@@ -324,7 +331,7 @@ async function processDir(dir, searchRadius, fovCamera, server, pattern) {
     logError(`dir ${dir} not found -> abort`);
     process.exit();
   }
-  log(`watching dir ${ppPath(dir)}`);
+  log(`watching dir ${chalk.blue(ppPath(dir))}`);
   while (true) {
     let path = await watch(dir, pattern);
     log(chalk.yellow("--------------------------------------------------------------------------------"));
@@ -393,12 +400,12 @@ async function main() {
   const localhost = await resolveLocalhost();
   stellariumApi = `http://${localhost}:8090/api`;
 
-  const fovCamera = parseFloat(argv.fov || 1);
-  const searchRadius = parseInt(argv.search || 15);
   useAstap = !argv.astro;
-  log(`using ${useAstap ? "astap" : "astronomy.net"} for platesolving`);
-  log(`using fov for camera ${fovCamera}`);
-  log(`using search radius ${searchRadius}`);
+  const fovCamera = parseFloat(argv.fov || (useAstap ? astapFov : astroFov));
+  const searchRadius = parseInt(argv.search || (useAstap ? astapSearch : astroSearch));
+  log(`using ${chalk.blue(useAstap ? "astap" : "astronomy.net")} for platesolving`);
+  log(`using fov for camera ${chalk.blue(fovCamera)}`);
+  log(`using search radius ${chalk.blue(searchRadius)}`);
 
   const server = argv.server;
   if (server) pingServer(server);
