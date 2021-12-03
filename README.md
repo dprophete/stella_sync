@@ -18,7 +18,7 @@ stella_sync.js --port <port> [options]
 
 options:
   --radius: search radius in degrees, default 15
-  --fov: fov of the camera in degrees, default 15
+  --fov: fov of the camera in degrees, default 1
   --astap | astro: use astap or astronomy.net for platesolving, default astap
   --server: an optional server url
 ```
