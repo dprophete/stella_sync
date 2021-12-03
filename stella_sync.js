@@ -41,9 +41,11 @@ function logError(...args) {
   console.log(chalk.red(ppNow(), ...args));
 }
 
-function exe(cmd) {
+function exe(cmd, logCmd = false) {
   return new Promise((resolve, reject) => {
+    if (logCmd) log(`cmd: ${cmd}`);
     exec(cmd, (error, stdout, stderr) => {
+      if (logCmd) log(`stdout: ${stdout}\nstderr: ${stderr}\nerror: ${error}`);
       if (error) reject(error);
       else resolve((stdout || stderr || "").trim());
     });
@@ -198,7 +200,7 @@ async function getRaDegStella() {
   }
 }
 
-// params is: { srcImg, raDegStella, decDegStella, searchRadius, fovStella, server }
+// params is: { srcImg, raDegStella, decDegStella, searchRadius, fovCamera, server }
 // return: [angle (degrees), j2000]
 async function plateSolve(params) {
   let startDate = new Date().getTime();
@@ -213,18 +215,18 @@ async function plateSolve(params) {
 }
 
 // send image to remote server for platesolving
-async function remotePlateSolve({ srcImg, raDegStella, decDegStella, searchRadius, fovStella, server }) {
+async function remotePlateSolve({ srcImg, raDegStella, decDegStella, searchRadius, fovCamera, server }) {
   log("sending img to remote server for platesolve");
   const dstImg = `${uploadDir}/tmp${path.extname(srcImg)}`;
   fs.removeSync(dstImg);
   fs.copySync(srcImg, dstImg);
-  let res = await exe(`curl -X POST -F "ra=${raDegStella}" -F "dec=${decDegStella}" -F "seach=${searchRadius}" -F "fov=${fovStella}" -F "img=@${dstImg}" ${server}/platesolve`);
+  let res = await exe(`curl -X POST -F "ra=${raDegStella}" -F "dec=${decDegStella}" -F "seach=${searchRadius}" -F "fov=${fovCamera}" -F "img=@${dstImg}" ${server}/platesolve`, true);
   let { success, angle, raDeg, decDeg, error } = JSON.parse(res);
   if (success) return [angle, raDeg, decDeg];
   throw error;
 }
 
-async function localPlateSolve({ srcImg, raDegStella, decDegStella, searchRadius, fovStella }) {
+async function localPlateSolve({ srcImg, raDegStella, decDegStella, searchRadius, fovCamera }) {
   // copy img to tmp dst
   const baseImg = path.basename(srcImg);
   const img = `${plateSolveDir}/${baseImg}`;
@@ -232,17 +234,17 @@ async function localPlateSolve({ srcImg, raDegStella, decDegStella, searchRadius
   fs.ensureDirSync(plateSolveDir);
   fs.copySync(srcImg, img);
 
-  if (useAstap) return localPlateSolveAstap({ img, raDegStella, decDegStella, searchRadius, fovStella });
-  else return localPlateSolveAstronomyDotNet({ img, raDegStella, decDegStella, searchRadius, fovStella });
+  if (useAstap) return localPlateSolveAstap({ img, raDegStella, decDegStella, searchRadius, fovCamera });
+  else return localPlateSolveAstronomyDotNet({ img, raDegStella, decDegStella, searchRadius, fovCamera });
 }
 
-async function localPlateSolveAstap({ img, raDegStella, decDegStella, searchRadius, fovStella }) {
+async function localPlateSolveAstap({ img, raDegStella, decDegStella, searchRadius, fovCamera }) {
   const ext = path.extname(img);
 
   const wcs = img.replace(ext, ".wcs");
   // plate solve
   try {
-    let output = await exe(`${astap()} -ra ${raDegStella / 15} -spd ${90 + decDegStella} -fov ${fovStella} -r ${searchRadius} -f ${img}`);
+    let output = await exe(`${astap()} -ra ${raDegStella / 15} -spd ${normalizeDeg(90 + decDegStella)} -r ${searchRadius} -f ${img}`, true);
   } catch (e) {
     throw "error: couldn't solve for ra/dec";
   }
@@ -262,7 +264,7 @@ async function localPlateSolveAstap({ img, raDegStella, decDegStella, searchRadi
   return [angle, raDeg, decDeg];
 }
 
-async function localPlateSolveAstronomyDotNet({ img, raDegStella, decDegStella, searchRadius, fovStella }) {
+async function localPlateSolveAstronomyDotNet({ img, raDegStella, decDegStella, searchRadius, fovCamera }) {
   // plate solve
   let res = await exe(`solve-field --cpulimit 20 --ra=${raDegStella} --dec=${decDegStella} --radius=${searchRadius} --no-plot ${img}`);
 
@@ -290,7 +292,7 @@ async function moveStellarium(angle, [x, y, z]) {
 // - check with stellarium where we are pointing
 // - use this to platesolve (within 1° of where stellarium is pointing)
 // - move stellarium to exactly where we are (position + rotation)
-async function processImg(img, searchRadius, fovStella, server) {
+async function processImg(img, searchRadius, fovCamera, server) {
   log(`processing ${ppPath(img)}`);
   if (fs.pathExistsSync(lockFile)) {
     logError(`lockFile ${lockFile} already exists -> abort`);
@@ -308,7 +310,7 @@ async function processImg(img, searchRadius, fovStella, server) {
   let [raDegStella, decDegStella] = await getRaDegStella();
 
   try {
-    let [angle, j2000] = await plateSolve({ srcImg, raDegStella, decDegStella, searchRadius, fovStella, server });
+    let [angle, j2000] = await plateSolve({ srcImg, raDegStella, decDegStella, searchRadius, fovCamera, server });
     await moveStellarium(angle, j2000);
     await play("/System/Library/Sounds/Purr.aiff");
   } catch (e) {
@@ -317,7 +319,7 @@ async function processImg(img, searchRadius, fovStella, server) {
   fs.removeSync(lockFile);
 }
 
-async function processDir(dir, searchRadius, fovStella, server, pattern) {
+async function processDir(dir, searchRadius, fovCamera, server, pattern) {
   if (!fs.pathExistsSync(dir)) {
     logError(`dir ${dir} not found -> abort`);
     process.exit();
@@ -327,7 +329,7 @@ async function processDir(dir, searchRadius, fovStella, server, pattern) {
     let path = await watch(dir, pattern);
     log(chalk.yellow("--------------------------------------------------------------------------------"));
     await sleep(500); // make sure the file is fully written (seems that sharpcap takes a little bit of time)
-    await processImg(path, searchRadius, fovStella, server);
+    await processImg(path, searchRadius, fovCamera, server);
   }
 }
 //--------------------------------------------------------------------------------
@@ -351,9 +353,9 @@ async function startServer(port) {
     const raDegStella = parseFloat(req.body.ra);
     const decDegStella = parseFloat(req.body.dec);
     const searchRadius = parseFloat(req.body.search);
-    const fovStella = parseFloat(req.body.fov);
+    const fovCamera = parseFloat(req.body.fov);
     try {
-      let [angle, raDeg, decDeg] = await localPlateSolve({ srcImg, raDegStella, decDegStella, searchRadius, fovStella });
+      let [angle, raDeg, decDeg] = await localPlateSolve({ srcImg, raDegStella, decDegStella, searchRadius, fovCamera });
       res.json({ success: true, angle, raDeg, decDeg });
     } catch (e) {
       logError(e);
@@ -391,31 +393,37 @@ async function main() {
   const localhost = await resolveLocalhost();
   stellariumApi = `http://${localhost}:8090/api`;
 
-  const fovStella = parseFloat(argv.fov || 1);
-  const searchRadius = parseInt(argv.search || 30);
-  useAstap = argv.useAstap != "false";
-  log(`using useAstap ${useAstap}`);
-  log(`using fovStella ${fovStella}`);
-  log(`using searchRadius ${searchRadius}`);
+  const fovCamera = parseFloat(argv.fov || 1);
+  const searchRadius = parseInt(argv.search || 15);
+  useAstap = !argv.astro;
+  log(`using ${useAstap ? "astap" : "astronomy.net"} for platesolving`);
+  log(`using fov for camera ${fovCamera}`);
+  log(`using search radius ${searchRadius}`);
 
   const server = argv.server;
   if (server) pingServer(server);
 
   if (argv.img) {
     const img = cleanPath(argv.img);
-    processImg(img, searchRadius, fovStella, server);
+    processImg(img, searchRadius, fovCamera, server);
   } else if (argv.dir) {
     const dir = cleanPath(argv.dir);
     const pattern = argv.pattern;
-    processDir(dir, searchRadius, fovStella, server, pattern);
+    processDir(dir, searchRadius, fovCamera, server, pattern);
   } else if (argv.port) {
     const port = parseInt(argv.port);
     startServer(port);
   } else {
     console.log(`usage:
-  stella_sync.js --img <img to analyze> [--server <server url>]
-  stella_sync.js --dir <dir to watch> [--pattern <pattern to watch for>] [--server <server url>]
-  stella_sync.js --port <port>`);
+  stella_sync.js --img <img to analyze> [options]
+  stella_sync.js --dir <dir to watch> [options]
+  stella_sync.js --port <port> [options]
+
+options:
+  --radius: search radius in degrees, default 15
+  --fov: fov of the camera in degrees, default 15
+  --astap | astro: use astap or astronomy.net for platesolving, default astap
+  --server: an optional server url`);
   }
 }
 

@@ -1,4 +1,8 @@
 {
+  "scripts": {
+    "stella_astap": "./stella_sync.js --astap --fov 1 --search 15 --dir ~/Dropbox/papa/astronomy/asistudio --pattern '*test*.jpg'",
+    "stella_astro": "./stella_sync.js --astro --search 2 --dir ~/Dropbox/papa/astronomy/asistudio --pattern '*test*.jpg'"
+  },
   "dependencies": {
     "chalk": "^4.1.2",
     "express": "^4.17.1",
