@@ -93,7 +93,8 @@ async function play(sound) {
 async function watch(dir, pattern) {
   if (pattern == null) pattern = "*";
   let find = fs.pathExistsSync("/opt/homebrew/bin/gfind") ? "gfind" : "find";
-  let cmd = `${find} "${dir}" \\( -name '*.jpg' -o -name '*.png' -o -name '*.fit' \\) -path '${pattern}' -printf '%T+ %p\n' | sort -r | head -n1`;
+  // note: it needs to be .fit since jpg/png have an internal rotation and this messes up astap
+  let cmd = `${find} "${dir}" -name '*.fit' -path '${pattern}' -printf '%T+ %p\n' | sort -r | head -n1`;
   let last;
   let current = await exe(cmd);
   while (true) {
