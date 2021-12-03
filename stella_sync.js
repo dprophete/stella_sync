@@ -213,11 +213,11 @@ async function plateSolve(params) {
   let startDate = new Date().getTime();
   const [angle, raDeg, decDeg] = params.server ? await remotePlateSolve(params) : await localPlateSolve(params);
   let endDate = new Date().getTime();
-  log(`platesolving took ${((endDate - startDate) / 1000).toFixed(2)}s`);
+  log(`platesolving took ${chalk.blue(((endDate - startDate) / 1000).toFixed(2) + "s")}`);
 
   const j2000 = degToJ2000(raDeg, decDeg);
-  log(`solved: ra: ${ppDeg(raDeg)}, dec: ${ppDeg(decDeg)} -> ${ppJ2000(j2000)}`);
-  log(`rotation: ${ppDeg(angle)}`);
+  log(`solved: ra: ${chalk.blue(ppDeg(raDeg))}, dec: ${chalk.blue(ppDeg(decDeg))} -> ${ppJ2000(j2000)}`);
+  log(`rotation: ${chalk.blue(ppDeg(angle))}`);
   return [angle, j2000];
 }
 
@@ -251,7 +251,7 @@ async function localPlateSolveAstap({ img, raDegStella, decDegStella, searchRadi
   const wcs = img.replace(ext, ".wcs");
   // plate solve
   try {
-    let output = await exe(`${astap()} -ra ${raDegStella / 15} -spd ${normalizeDeg(90 + decDegStella)} -r ${searchRadius} -f ${img}`, true);
+    let output = await exe(`${astap()} -ra ${raDegStella / 15} -spd ${normalizeDeg(90 + decDegStella)} -r ${searchRadius} -f ${img}`);
   } catch (e) {
     throw "error: couldn't solve for ra/dec";
   }
@@ -300,7 +300,7 @@ async function moveStellarium(angle, [x, y, z]) {
 // - use this to platesolve (within 1° of where stellarium is pointing)
 // - move stellarium to exactly where we are (position + rotation)
 async function processImg(img, searchRadius, fovCamera, server) {
-  log(`processing ${ppPath(img)}`);
+  log(`processing ${chalk.blue(ppPath(img))}`);
   if (fs.pathExistsSync(lockFile)) {
     logError(`lockFile ${lockFile} already exists -> abort`);
     return;

@@ -1,7 +1,7 @@
 {
   "scripts": {
-    "stella_astap": "./stella_sync.js --astap --dir $ASTRO/asistudio --pattern '*test*.jpg'",
-    "stella_astro": "./stella_sync.js --astro --dir $ASTRO/asistudio --pattern '*test*.jpg'"
+    "stella_astap": "./stella_sync.js --astap --dir $ASTRO/asistudio --pattern '*test*.fit'",
+    "stella_astro": "./stella_sync.js --astro --dir $ASTRO/asistudio --pattern '*test*.fit'"
   },
   "dependencies": {
     "chalk": "^4.1.2",
