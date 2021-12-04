@@ -208,6 +208,23 @@ async function getRaDegStella() {
   }
 }
 
+async function getFovStella() {
+  try {
+    let res = await exe(`curl -s ${stellariumApi}/stelproperty/list`);
+    const jsonRes = JSON.parse(res);
+    const lensIndex = jsonRes["Oculars.selectedLensIndex"]["value"];
+    const ratios = [1, 2.5, 0.73, 0.66, 0.6, 0.54];
+    const ratio = ratios[lensIndex + 1];
+    if (ratio == 1) log(`detected ${chalk.blue("no barlow or FR")}`);
+    else if (ratio > 1) log(`detected barlow ${chalk.blue(ratio)}`);
+    else log(`detected FR ${chalk.blue(ratio)}`);
+    return ratio;
+  } catch (_) {
+    logError("stellarium not running or doesn't have the remote control plugin)");
+    process.exit();
+  }
+}
+
 // params is: { srcImg, raDegStella, decDegStella, searchRadius, fovCamera, server }
 // return: [angle (degrees), j2000]
 async function plateSolve(params) {
@@ -402,11 +419,15 @@ async function main() {
   stellariumApi = `http://${localhost}:8090/api`;
 
   useAstap = !argv.astro;
-  const fovCamera = parseFloat(argv.fov || (useAstap ? astapFov : astroFov));
+  let ratioCamera = await getFovStella();
+  const fovDefault = 1 / ratioCamera; // base fov is 1 arciminute on the y axis
+
+  const fovCamera = parseFloat(argv.fov || fovDefault);
   const searchRadius = parseInt(argv.search || (useAstap ? astapSearch : astroSearch));
+
   log(`using ${chalk.blue(useAstap ? "astap" : "astronomy.net")} for platesolving`);
-  log(`using fov for camera ${chalk.blue(fovCamera)}`);
-  log(`using search radius ${chalk.blue(searchRadius)}`);
+  log(`using fov for camera ${chalk.blue(fovCamera.toFixed(2))}`);
+  log(`using search radius ${chalk.blue(searchRadius.toFixed(2))}`);
 
   const server = argv.server;
   if (server) pingServer(server);
