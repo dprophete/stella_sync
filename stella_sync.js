@@ -20,10 +20,8 @@ const lockFile = `${tmpDir}/stella_sync.lock`; // a file used to make sure we do
 
 let useAstap = true; // you can change this on the cmd line with --astro or --astap
 // defaults for astap
-const astapFov = 1;
 const astapSearch = 25;
 // default for astrometry.net
-const astroFov = 1;
 const astroSearch = 2;
 
 // will be defined later
