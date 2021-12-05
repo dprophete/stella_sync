@@ -1,16 +1,14 @@
 #!/usr/bin/env node
-// usage: stella_sync.mj --img <path to img> [--server url]
-//        stella_sync.mj --dir <path to dir to watch> [--server url]
-//        stella_sync.mj --port <port>
 
 const fs = require("fs-extra");
 const express = require("express");
 const multer = require("multer");
 const chalk = require("chalk");
 const argv = require("minimist")(process.argv.slice(2));
-const os = require("os");
 const path = require("path");
-const { exec } = require("child_process");
+const { degToRad, radToDeg, dmsToDeg, hmsToDeg, degToJ2000, j2000ToDeg, normalizeDeg } = require("convert");
+const { log, logError, exe, resolveLocalhost, sleep, cleanPath, play, astap, watch } = require("utils");
+const { ppNow, ppPath, pp2Dec, ppRa, ppDec, ppDeg, ppRad, ppJ2000 } = require("pp");
 
 const tmpDir = "/tmp/stella_sync";
 const plateSolveDir = `${tmpDir}/platesolve`; // where the server will put the platesolving files
@@ -26,165 +24,6 @@ const astroSearch = 2;
 
 // will be defined later
 let stellariumApi;
-
-const PI = Math.PI;
-const cos = Math.cos;
-const sin = Math.sin;
-const asin = Math.asin;
-const atan2 = Math.atan2;
-
-//--------------------------------------------------------------------------------
-// misc
-//--------------------------------------------------------------------------------
-
-function log(...args) {
-  console.log(chalk.yellow(ppNow()), ...args);
-}
-
-function logError(...args) {
-  play("/System/Library/Sounds/Ping.aiff");
-  console.log(chalk.red(ppNow(), ...args));
-}
-
-function exe(cmd, logCmd = false) {
-  return new Promise((resolve, reject) => {
-    if (logCmd) log(`cmd: ${cmd}`);
-    exec(cmd, (error, stdout, stderr) => {
-      if (logCmd) log(`stdout: ${stdout}\nstderr: ${stderr}\nerror: ${error}`);
-      if (error) reject(error);
-      else resolve((stdout || stderr || "").trim());
-    });
-  });
-}
-
-async function resolveLocalhost() {
-  // on windows, wsl can't ping localhost (apparently the port mapping in only one way so we
-  // have to resolve localhost in a different way)
-  return (await exe(`hostname -s`)) + ".local";
-}
-
-function astap() {
-  if (fs.pathExistsSync("/Applications/ASTAP.app/Contents/MacOS/astap")) return "/Applications/ASTAP.app/Contents/MacOS/astap";
-  return "/mnt/c/Program\\ Files/astap/astap.exe";
-}
-
-function sleep(ms) {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
-}
-
-// ~/astronomy/sharpcap -> /Users/didier/astronomy/sharpcap
-function cleanPath(pth) {
-  return pth.replace("~", os.homedir());
-}
-
-async function play(sound) {
-  if (fs.pathExistsSync("/usr/bin/afplay")) {
-    await exe(`afplay ${sound}`);
-  } else {
-    console.log("");
-  }
-}
-
-// watch a dir and return the last changed file
-async function watch(dir, pattern) {
-  if (pattern == null) pattern = "*";
-  let find = fs.pathExistsSync("/opt/homebrew/bin/gfind") ? "gfind" : "find";
-  // note: it needs to be .fit since jpg/png have an internal rotation and this messes up astap
-  let cmd = `${find} "${dir}" -name '*.fit' -path '${pattern}' -printf '%T+ %p\n' | sort -r | head -n1`;
-  let last;
-  let current = await exe(cmd);
-  while (true) {
-    await sleep(500);
-    last = await exe(cmd);
-    if (last != current) break;
-  }
-  // last is going to be: <last-modif-date><space><filepath>, so let's only keep the filepath
-  return last.substr(last.indexOf(" ") + 1);
-}
-
-//--------------------------------------------------------------------------------
-// conversion
-//--------------------------------------------------------------------------------
-
-// degrees (0-360) -> radiants (0-2PI)
-function degToRad(deg) {
-  return (deg * PI) / 180;
-}
-
-// radiants (0-2PI) -> degrees (0-360)
-function radToDeg(rad) {
-  return (rad * 180) / PI;
-}
-
-// [deg, mins, secs] -> degrees
-function dmsToDeg([degs, mins, secs]) {
-  return degs + mins / 60 + secs / 3600;
-}
-
-// [hours, mins, secs] -> degrees
-function hmsToDeg([hours, mins, secs]) {
-  return ((hours + mins / 60 + secs / 3600) / 24) * 360;
-}
-
-// ra/dec (degrees) -> [x, y, z] (j2000)
-function degToJ2000(raDeg, decDeg) {
-  let α = degToRad(raDeg);
-  let δ = degToRad(decDeg);
-  return [cos(δ) * cos(α), cos(δ) * sin(α), sin(δ)];
-}
-
-// [x, y, z] (j2000) -> ra/dec (degrees)
-function j2000ToDeg([x, y, z]) {
-  return [normalizeDeg(radToDeg(atan2(y, x))), normalizeDeg(radToDeg(asin(z)))];
-}
-
-function normalizeDeg(deg) {
-  deg = deg % 360;
-  if (deg < 0) deg += 360;
-  return deg;
-}
-
-//--------------------------------------------------------------------------------
-// pp
-//--------------------------------------------------------------------------------
-
-function ppNow() {
-  return "[" + new Date().toLocaleTimeString().padStart(11) + "]";
-}
-
-function ppPath(pth) {
-  return pth.replace(os.homedir(), "~");
-}
-// pp number with 2 decimals
-function pp2Dec(num) {
-  return (Math.round(num * 100) / 100).toFixed(2);
-}
-
-// pp right ascension: 21h36m14.42s
-function ppRa([hours, mins, secs]) {
-  return `${Math.round(hours)}h${Math.round(mins)}m${pp2Dec(secs)}s`;
-}
-// pp declination: 57°34'28.16"
-function ppDec([degs, mins, secs]) {
-  return `${Math.round(degs)}°${Math.round(mins)}'${pp2Dec(secs)}"`;
-}
-
-// pp degrees: 57.57°
-function ppDeg(degs) {
-  return `${pp2Dec(degs)}°`;
-}
-
-// pp radians: 0.69rad
-function ppRad(degs) {
-  return `${pp2Dec(degs)}rad`;
-}
-
-// pp J2000: [0.50, 0.76, 0.41][j2000]
-function ppJ2000([x, y, z]) {
-  return `[j2000 | x:${pp2Dec(x)}, y:${pp2Dec(y)}, z:${pp2Dec(z)}]`;
-}
 
 //--------------------------------------------------------------------------------
 // stellarium/plate solving
@@ -448,7 +287,7 @@ async function main() {
 
 options:
   --radius: search radius in degrees, default 15
-  --fov: fov of the camera in degrees, default 15
+  --fov: fov of the camera in degrees, default 1
   --astap | astro: use astap or astronomy.net for platesolving, default astap
   --server: an optional server url`);
   }
