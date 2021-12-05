@@ -6,9 +6,9 @@ const multer = require("multer");
 const chalk = require("chalk");
 const argv = require("minimist")(process.argv.slice(2));
 const path = require("path");
-const { degToRad, radToDeg, dmsToDeg, hmsToDeg, degToJ2000, j2000ToDeg, normalizeDeg } = require("convert");
+const { degToJ2000, j2000ToDeg, normalizeDeg } = require("convert");
 const { log, logError, exe, resolveLocalhost, sleep, cleanPath, play, astap, watch } = require("utils");
-const { ppNow, ppPath, pp2Dec, ppRa, ppDec, ppDeg, ppRad, ppJ2000 } = require("pp");
+const { ppPath, ppDeg, ppJ2000 } = require("pp");
 
 const tmpDir = "/tmp/stella_sync";
 const plateSolveDir = `${tmpDir}/platesolve`; // where the server will put the platesolving files
