@@ -39,9 +39,9 @@ async function main() {
     fs.ensureDirSync(`${dir}/fits`);
     fs.readdirSync(dir).forEach((fileName) => {
       if (fs.statSync(`${dir}/${fileName}`).isFile() && fileName.startsWith("Light_Stack_")) {
-        const matches = fileName.match(/Light_Stack_(\d+)frames_(.*)_(\d+)sec_.*\.(.*)$/);
+        const matches = fileName.match(/Light_Stack_(\d+)frames_(.*)_(\d+)sec_.*_gain(\d+).*\.(.*)$/);
         if (matches) {
-          const [prefix, frames, name, sub, ext] = matches;
+          const [prefix, frames, name, sub, gain, ext] = matches;
           const total = parseInt(frames) * parseInt(sub);
           let totalStr = "";
           if (total < 120) {
@@ -49,7 +49,10 @@ async function main() {
           } else {
             totalStr = `${Math.round(total / 60)}m`;
           }
-          let newName = `${name} - ${frames}x${sub}s - total ${totalStr}.${ext}`;
+          let gainStr = "high";
+          if (gain == "0") gainStr = "low";
+          if (gain == "120") gainStr = "mid";
+          let newName = `${name} - gain ${gainStr} - ${frames}x${sub}s - total ${totalStr}.${ext}`.replace("  ", " ");
           const newDir = ext == "fit" ? `${dir}/fits` : dir;
           newName = getUniqueName(newDir, newName);
           log(`${fileName} -> ${newName}`);
