@@ -171,6 +171,14 @@ async function processImg(img, searchRadius, fovCamera, server) {
   fs.copySync(img, srcImg);
   let [raDegStella, decDegStella] = await getRaDegStella();
 
+  if (img.indexOf("Light_Preview_test_") != -1) {
+    const ext = path.extname(img);
+    const jpg = img.replace(ext, ".jpg");
+    fs.removeSync(img);
+    fs.removeSync(jpg);
+    log(`delete img ${img}`);
+    log(`delete img ${jpg}`);
+  }
   try {
     let [angle, j2000] = await plateSolve({ srcImg, raDegStella, decDegStella, searchRadius, fovCamera, server });
     await moveStellarium(angle, j2000);
@@ -189,6 +197,7 @@ async function processDir(dir, searchRadius, fovCamera, server, pattern) {
   log(`watching dir ${chalk.blue(ppPath(dir))}`);
   while (true) {
     let path = await watch(dir, pattern);
+    if (path == "") continue; // when you delete files
     log(chalk.yellow("--------------------------------------------------------------------------------"));
     await sleep(500); // make sure the file is fully written (seems that sharpcap takes a little bit of time)
     await processImg(path, searchRadius, fovCamera, server);
@@ -286,6 +295,7 @@ async function main() {
   stella_sync.js --port <port> [options]
 
 options:
+  --pattern: pattern for files to watch (when dir is used)
   --radius: search radius in degrees, default 15
   --fov: fov of the camera in degrees, default 1
   --astap | astro: use astap or astronomy.net for platesolving, default astap
