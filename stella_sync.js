@@ -51,7 +51,8 @@ async function getFovStella() {
     const jsonRes = JSON.parse(res);
     const lensIndex = jsonRes["Oculars.selectedLensIndex"]["value"];
     const ratios = [1, 2.5, 0.73, 0.66, 0.6, 0.54];
-    const ratio = ratios[lensIndex + 1];
+    let ratio = ratios[lensIndex + 1]; 
+    if (ratio === undefined) ratio = 1;
     if (ratio == 1) log(`detected ${chalk.blue("no barlow or FR")}`);
     else if (ratio > 1) log(`detected barlow ${chalk.blue(ratio)}`);
     else log(`detected FR ${chalk.blue(ratio)}`);
