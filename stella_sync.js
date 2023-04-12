@@ -16,11 +16,8 @@ const downloadDir = `${tmpDir}/download`; // where the server will receive the i
 const uploadDir = `${tmpDir}/upload`; // where the client send the images
 const lockFile = `${tmpDir}/stella_sync.lock`; // a file used to make sure we don't try to process two images at once
 
-let useAstap = true; // you can change this on the cmd line with --astro or --astap
 // defaults for astap
 const astapSearch = 25;
-// default for astrometry.net
-const astroSearch = 2;
 
 // will be defined later
 let stellariumApi;
@@ -50,9 +47,8 @@ async function getFovStella() {
     let res = await exe(`curl -s ${stellariumApi}/stelproperty/list`);
     const jsonRes = JSON.parse(res);
     const lensIndex = jsonRes["Oculars.selectedLensIndex"]["value"];
-    const ratios = [1, 2.5, 0.73, 0.66, 0.6, 0.54];
-    let ratio = ratios[lensIndex + 1]; 
-    if (ratio === undefined) ratio = 1;
+    const ratios = [1, 2.5, 0.73, 0.66, 0.6, 0.54, 1.6, 2.5];
+    const ratio = ratios[lensIndex + 1] || 1; 
     if (ratio == 1) log(`detected ${chalk.blue("no barlow or FR")}`);
     else if (ratio > 1) log(`detected barlow ${chalk.blue(ratio)}`);
     else log(`detected FR ${chalk.blue(ratio)}`);
@@ -97,8 +93,7 @@ async function localPlateSolve({ srcImg, raDegStella, decDegStella, searchRadius
   fs.ensureDirSync(plateSolveDir);
   fs.copySync(srcImg, img);
 
-  if (useAstap) return localPlateSolveAstap({ img, raDegStella, decDegStella, searchRadius, fovCamera });
-  else return localPlateSolveAstronomyDotNet({ img, raDegStella, decDegStella, searchRadius, fovCamera });
+  return localPlateSolveAstap({ img, raDegStella, decDegStella, searchRadius, fovCamera });
 }
 
 async function localPlateSolveAstap({ img, raDegStella, decDegStella, searchRadius, fovCamera }) {
@@ -123,23 +118,6 @@ async function localPlateSolveAstap({ img, raDegStella, decDegStella, searchRadi
   const raDeg = parseFloat(values["CRVAL1"]);
   const decDeg = parseFloat(values["CRVAL2"]);
   const angle = normalizeDeg(180 - parseFloat(values["CROTA1"]));
-
-  return [angle, raDeg, decDeg];
-}
-
-async function localPlateSolveAstronomyDotNet({ img, raDegStella, decDegStella, searchRadius, fovCamera }) {
-  // plate solve
-  let res = await exe(`solve-field --cpulimit 20 --ra=${raDegStella} --dec=${decDegStella} --radius=${searchRadius} --no-plot ${img}`);
-
-  // extract result
-  const matchRaDec = res.match(/Field center: \(RA,Dec\) = \(([-]?\d+.\d+), ([-]?\d+.\d+)\) deg./);
-  if (matchRaDec == null) throw "error: couldn't solve for ra/dec";
-  const raDeg = parseFloat(matchRaDec[1]);
-  const decDeg = parseFloat(matchRaDec[2]);
-
-  const matchAngle = res.match(/Field rotation angle: up is ([-]?\d+.\d+) degrees/);
-  if (matchAngle == null) throw "error: couldn't solve for angle";
-  const angle = normalizeDeg(180 - parseFloat(matchAngle[1]));
 
   return [angle, raDeg, decDeg];
 }
@@ -265,14 +243,13 @@ async function main() {
   const localhost = await resolveLocalhost();
   stellariumApi = `http://${localhost}:8090/api`;
 
-  useAstap = !argv.astro;
   let ratioCamera = await getFovStella();
   const fovDefault = 1 / ratioCamera; // base fov is 1 arciminute on the y axis
 
   const fovCamera = parseFloat(argv.fov || fovDefault);
-  const searchRadius = parseInt(argv.search || (useAstap ? astapSearch : astroSearch));
+  const searchRadius = parseInt(argv.search || astapSearch);
 
-  log(`using ${chalk.blue(useAstap ? "astap" : "astronomy.net")} for platesolving`);
+  log(`using ${chalk.blue("astap")} for platesolving`);
   log(`using fov for camera ${chalk.blue(fovCamera.toFixed(2))}`);
   log(`using search radius ${chalk.blue(searchRadius.toFixed(2))}`);
 
@@ -297,9 +274,8 @@ async function main() {
 
 options:
   --pattern: pattern for files to watch (when dir is used)
-  --radius: search radius in degrees, default 15
+  --radius: search radius in degrees, default 25
   --fov: fov of the camera in degrees, default 1
-  --astap | astro: use astap or astronomy.net for platesolving, default astap
   --server: an optional server url`);
   }
 }
