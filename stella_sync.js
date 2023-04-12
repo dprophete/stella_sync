@@ -71,7 +71,7 @@ async function plateSolve(params) {
   return [angle, j2000];
 }
 
-async function localPlateSolve({ srcImg, raDegStella, decDegStella, searchRadius, fovCamera }) {
+async function localPlateSolve({ srcImg, raDegStella, decDegStella, searchRadius }) {
   // copy img to tmp dst
   const baseImg = path.basename(srcImg);
   const img = `${plateSolveDir}/${baseImg}`;
@@ -79,12 +79,7 @@ async function localPlateSolve({ srcImg, raDegStella, decDegStella, searchRadius
   fs.ensureDirSync(plateSolveDir);
   fs.copySync(srcImg, img);
 
-  return localPlateSolveAstap({ img, raDegStella, decDegStella, searchRadius, fovCamera });
-}
-
-async function localPlateSolveAstap({ img, raDegStella, decDegStella, searchRadius, fovCamera }) {
   const ext = path.extname(img);
-
   const wcs = img.replace(ext, ".wcs");
   // plate solve
   try {

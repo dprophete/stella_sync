@@ -43,9 +43,9 @@ function formatName(fileName) {
   let gainStr = "high";
   if (gain == "0") gainStr = "low";
   if (gain == "120") gainStr = "mid";
-  return { 
-      newName: `${name} - gain ${gainStr} - ${frames}x${sub}s - total ${totalStr}.${ext}`.replace("  ", " "), 
-      ext: ext 
+  return {
+    newName: `${name} - gain ${gainStr} - ${frames}x${sub}s - total ${totalStr}.${ext}`.replace("  ", " "),
+    ext: ext,
   };
 }
 
