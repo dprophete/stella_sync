@@ -28,6 +28,24 @@ function getUniqueName(dir, fileName) {
   return possibleNewName;
 }
 
+function formatName(fileName) {
+  const matches = fileName.match(/Light_Stack_(\d+)frames_(.*)_(\d+)sec_.*_gain(\d+).*\.(.*)$/);
+  if (!matches) return null;
+
+  const [full, frames, name, sub, gain, ext] = matches;
+  const total = parseInt(frames) * parseInt(sub);
+  let totalStr = "";
+  if (total < 120) {
+    totalStr = `${total}s`;
+  } else {
+    totalStr = `${Math.round(total / 60)}m`;
+  }
+  let gainStr = "high";
+  if (gain == "0") gainStr = "low";
+  if (gain == "120") gainStr = "mid";
+  return { newName: `${name} - gain ${gainStr} - ${frames}x${sub}s - total ${totalStr}.${ext}`.replace("  ", " "), ext: ext };
+}
+
 async function main() {
   if (argv.dir) {
     const dir = cleanPath(argv.dir);
@@ -39,32 +57,22 @@ async function main() {
     fs.ensureDirSync(`${dir}/fits`);
     fs.readdirSync(dir).forEach((fileName) => {
       if (fs.statSync(`${dir}/${fileName}`).isFile() && fileName.startsWith("Light_Stack_")) {
-        const matches = fileName.match(/Light_Stack_(\d+)frames_(.*)_(\d+)sec_.*_gain(\d+).*\.(.*)$/);
-        if (matches) {
-          const [prefix, frames, name, sub, gain, ext] = matches;
-          const total = parseInt(frames) * parseInt(sub);
-          let totalStr = "";
-          if (total < 120) {
-            totalStr = `${total}s`;
-          } else {
-            totalStr = `${Math.round(total / 60)}m`;
-          }
-          let gainStr = "high";
-          if (gain == "0") gainStr = "low";
-          if (gain == "120") gainStr = "mid";
-          let newName = `${name} - gain ${gainStr} - ${frames}x${sub}s - total ${totalStr}.${ext}`.replace("  ", " ");
-          const newDir = ext == "fit" ? `${dir}/fits` : dir;
+        let res = formatName(fileName);
+        if (res) {
+          let { newName, ext } = res;
           newName = getUniqueName(newDir, newName);
+          const newDir = ext == "fit" ? `${dir}/fits` : dir;
           log(`${fileName} -> ${newName}`);
           fs.moveSync(`${dir}/${fileName}`, `${newDir}/${newName}`);
         }
       }
     });
   } else {
+    let ex = "Light_Stack_9frames_c72_30sec_Bin1_13.0C_gain120_2021-12-04_193635.jpg";
     console.log(`usage:
   rename_asi.js --dir <dir>
 
-  renames asi files: Light_Stack_9frames_c72_30sec_Bin1_13.0C_gain120_2021-12-04_193635.jpg -> c72 - 9x30s - total 5m.jpg`);
+  renames asi files: ${ex} -> ${formatName(ex).newName}`);
   }
 }
 
