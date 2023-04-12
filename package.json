@@ -1,14 +1,11 @@
 {
   "scripts": {
-    "stella_astap": "./stella_sync.js --astap --dir $ASTRO/asistudio --pattern '*test*.fit'",
-    "stella_astro": "./stella_sync.js --astro --dir $ASTRO/asistudio --pattern '*test*.fit'"
+    "stella_sync": "./stella_sync.js --dir $ASTRO/asistudio"
   },
   "dependencies": {
     "chalk": "^4.1.2",
-    "express": "^4.17.1",
     "fs-extra": "^10.0.0",
     "minimalist": "^1.0.0",
-    "multer": "^1.4.3",
     "path": "^0.12.7"
   }
 }
