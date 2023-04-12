@@ -43,7 +43,10 @@ function formatName(fileName) {
   let gainStr = "high";
   if (gain == "0") gainStr = "low";
   if (gain == "120") gainStr = "mid";
-  return { newName: `${name} - gain ${gainStr} - ${frames}x${sub}s - total ${totalStr}.${ext}`.replace("  ", " "), ext: ext };
+  return { 
+      newName: `${name} - gain ${gainStr} - ${frames}x${sub}s - total ${totalStr}.${ext}`.replace("  ", " "), 
+      ext: ext 
+  };
 }
 
 async function main() {
@@ -55,14 +58,16 @@ async function main() {
     }
     log(`cleaning dir ${chalk.blue(ppPath(dir))}`);
     fs.ensureDirSync(`${dir}/fits`);
+    fs.ensureDirSync(`${dir}/originals`);
     fs.readdirSync(dir).forEach((fileName) => {
       if (fs.statSync(`${dir}/${fileName}`).isFile() && fileName.startsWith("Light_Stack_")) {
         let res = formatName(fileName);
         if (res) {
           let { newName, ext } = res;
-          newName = getUniqueName(newDir, newName);
           const newDir = ext == "fit" ? `${dir}/fits` : dir;
+          newName = getUniqueName(newDir, newName);
           log(`${fileName} -> ${newName}`);
+          fs.copySync(`${dir}/${fileName}`, `${dir}/originals/${newName}`);
           fs.moveSync(`${dir}/${fileName}`, `${newDir}/${newName}`);
         }
       }
