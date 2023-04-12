@@ -248,10 +248,12 @@ async function main() {
 
   const fovCamera = parseFloat(argv.fov || fovDefault);
   const searchRadius = parseInt(argv.search || astapSearch);
+  const pattern = argv.pattern || "*test*.fit";
 
   log(`using ${chalk.blue("astap")} for platesolving`);
   log(`using fov for camera ${chalk.blue(fovCamera.toFixed(2))}`);
   log(`using search radius ${chalk.blue(searchRadius.toFixed(2))}`);
+  log(`using pattern ${chalk.blue(pattern)}`);
 
   const server = argv.server;
   if (server) pingServer(server);
@@ -261,7 +263,6 @@ async function main() {
     processImg(img, searchRadius, fovCamera, server);
   } else if (argv.dir) {
     const dir = cleanPath(argv.dir);
-    const pattern = argv.pattern;
     processDir(dir, searchRadius, fovCamera, server, pattern);
   } else if (argv.port) {
     const port = parseInt(argv.port);
@@ -273,7 +274,7 @@ async function main() {
   stella_sync.js --port <port> [options]
 
 options:
-  --pattern: pattern for files to watch (when dir is used)
+  --pattern: pattern for files to watch (when dir is used), default "*test*.fit"
   --radius: search radius in degrees, default 25
   --fov: fov of the camera in degrees, default 1
   --server: an optional server url`);
