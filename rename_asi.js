@@ -72,7 +72,10 @@ async function main() {
     console.log(`usage:
   rename_asi.js --dir <dir>
 
-  renames asi files: ${ex} -> ${formatName(ex).newName}`);
+  renames asi files: ${ex} -> ${formatName(ex).newName}
+
+example:
+  ./rename_asi.js --dir $ASTRO/asistudio/2023-04-08`);
   }
 }
 
