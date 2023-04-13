@@ -43,45 +43,46 @@ function formatName(fileName) {
   let gainStr = "high";
   if (gain == "0") gainStr = "low";
   if (gain == "120") gainStr = "mid";
-  return {
-    newName: `${name} - gain ${gainStr} - ${frames}x${sub}s - total ${totalStr}.${ext}`.replace("  ", " "),
-    ext: ext,
-  };
+  return `${name} - gain ${gainStr} - ${frames}x${sub}s - total ${totalStr}.${ext}`.replace("  ", " ");
 }
 
-async function main() {
-  if (argv.dir) {
-    const dir = cleanPath(argv.dir);
-    if (!fs.pathExistsSync(dir)) {
-      logError(`dir ${dir} not found -> abort`);
-      process.exit();
-    }
-    log(`cleaning dir ${chalk.blue(ppPath(dir))}`);
-    fs.ensureDirSync(`${dir}/fits`);
-    fs.ensureDirSync(`${dir}/originals`);
-    fs.readdirSync(dir).forEach((fileName) => {
-      if (fs.statSync(`${dir}/${fileName}`).isFile() && fileName.startsWith("Light_Stack_")) {
-        let res = formatName(fileName);
-        if (res) {
-          let { newName, ext } = res;
-          const newDir = ext == "fit" ? `${dir}/fits` : dir;
-          newName = getUniqueName(newDir, newName);
-          log(`${fileName} -> ${newName}`);
-          fs.copySync(`${dir}/${fileName}`, `${dir}/originals/${newName}`);
-          fs.moveSync(`${dir}/${fileName}`, `${newDir}/${newName}`);
-        }
-      }
-    });
-  } else {
-    let ex = "Light_Stack_9frames_c72_30sec_Bin1_13.0C_gain120_2021-12-04_193635.jpg";
-    console.log(`usage:
+function usage() {
+  let ex = "Light_Stack_9frames_c72_30sec_Bin1_13.0C_gain120_2021-12-04_193635.jpg";
+  console.log(`usage:
   rename_asi.js --dir <dir>
 
   renames asi files: ${ex} -> ${formatName(ex).newName}
 
 example:
   ./rename_asi.js --dir $ASTRO/asistudio/2023-04-08`);
-  }
+  process.exit();
 }
 
-main();
+//--------------------------------------------------------------------------------
+// main
+//--------------------------------------------------------------------------------
+
+if (argv.dir) {
+  const dir = cleanPath(argv.dir);
+  if (!fs.pathExistsSync(dir)) {
+    logError(`dir ${dir} not found -> abort`);
+    process.exit();
+  }
+  log(`cleaning dir ${chalk.blue(ppPath(dir))}`);
+  // fs.ensureDirSync(`${dir}/originals`);
+  fs.readdirSync(dir).forEach((fileName) => {
+    if (fs.statSync(`${dir}/${fileName}`).isFile() && fileName.startsWith("Light_Stack_")) {
+      let newName = formatName(fileName);
+      if (newName) {
+        let ext = path.extname(newName);
+        let newDir = `${dir}/originals/${ext.substring(1)}s`;
+        newName = getUniqueName(newDir, newName);
+        log(`${fileName} -> ${newName}`);
+        // fs.copySync(`${dir}/${fileName}`, `${dir}/originals/${newName}`);
+        fs.moveSync(`${dir}/${fileName}`, `${newDir}/${newName}`);
+      }
+    }
+  });
+} else {
+  usage();
+}

@@ -201,6 +201,7 @@ async function main() {
   const searchRadius = parseInt(argv.search || astapSearch);
   const pattern = argv.pattern || "*test*.fit";
 
+  log(`monitoring dir ${chalk.blue(dir)}`);
   log(`using ${chalk.blue("astap")} for platesolving`);
   log(`using fov for camera ${chalk.blue(fovCamera.toFixed(2))}`);
   log(`using search radius ${chalk.blue(searchRadius.toFixed(2))}`);
