@@ -14,7 +14,7 @@ const tmpDir = "/tmp/siril";
 async function runSiril(dirPath, inputFileName) {
   log(`processing ${chalk.blue(inputFileName)}`);
   const tmpScriptPath = `${tmpDir}/siril.script`;
-  const baseFileName = basename(inputFileName);
+  const baseFileName = inputFileName.replace(".fit", "");
   const script = `
     requires 1.2.0
     cd "${dirPath}"
