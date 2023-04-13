@@ -53,11 +53,6 @@ async function play(sound) {
   }
 }
 
-function astap() {
-  if (fs.pathExistsSync("/Applications/ASTAP.app/Contents/MacOS/astap")) return "/Applications/ASTAP.app/Contents/MacOS/astap";
-  return "/mnt/c/Program\\ Files/astap/astap.exe";
-}
-
 // watch a dir and return the last changed file
 async function watch(dir, pattern) {
   if (pattern == null) pattern = "*";

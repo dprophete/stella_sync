@@ -15,6 +15,7 @@ const uploadDir = `${tmpDir}/upload`; // where the client send the images
 const lockFile = `${tmpDir}/stella_sync.lock`; // a file used to make sure we don't try to process two images at once
 
 // defaults for astap
+const astap = cleanPath("~/bin/astap");
 const astapSearch = 25;
 
 // will be defined later
@@ -83,7 +84,7 @@ async function localPlateSolve({ srcImg, raDegStella, decDegStella, searchRadius
   const wcs = img.replace(ext, ".wcs");
   // plate solve
   try {
-    let output = await exe(`${astap()} -ra ${raDegStella / 15} -spd ${normalizeDeg(90 + decDegStella)} -r ${searchRadius} -f ${img}`);
+    await exe(`${astap} -ra ${raDegStella / 15} -spd ${normalizeDeg(90 + decDegStella)} -r ${searchRadius} -f ${img}`);
   } catch (e) {
     throw "error: couldn't solve for ra/dec";
   }
