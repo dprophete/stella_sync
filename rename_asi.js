@@ -47,14 +47,15 @@ function formatName(fileName) {
 }
 
 function usage() {
+  let name = path.basename(process.argv[1])
   let ex = "Light_Stack_9frames_c72_30sec_Bin1_13.0C_gain120_2021-12-04_193635.jpg";
   console.log(`usage:
-  rename_asi.js --dir <dir>
+  ${name} --dir <dir>
 
   renames asi files: ${ex} -> ${formatName(ex).newName}
 
 example:
-  ./rename_asi.js --dir $ASTRO/asistudio/2023-04-08`);
+  ${name} --dir $ASTRO/asistudio/2023-04-08`);
   process.exit();
 }
 

@@ -4,7 +4,7 @@
 const fs = require("fs-extra");
 const chalk = require("chalk");
 const argv = require("minimist")(process.argv.slice(2));
-const { extname } = require("path");
+const path = require("path");
 const { log, cleanPath, exe, logError } = require("utils");
 
 const sirilCli = cleanPath("~/bin/siril-cli");
@@ -34,11 +34,12 @@ async function runSiril(dir, inputFileName) {
 }
 
 function usage() {
+  let name = path.basename(process.argv[1]);
   console.log(`usage:
-  siril_fit.js --dir <dir>
+  ${name} --dir <dir>
 
 example:
-  ./siril_fit.js --dir $ASTRO/asistudio/2023-04-08`);
+  ${name} --dir $ASTRO/asistudio/2023-04-08`);
   process.exit();
 }
 
@@ -56,7 +57,7 @@ async function main() {
 
     log(`processing dir ${chalk.blue(dir)}`);
     for (fileName of fs.readdirSync(dir)) {
-      if (extname(fileName) == ".fit") {
+      if (path.extname(fileName) == ".fit") {
         await runSiril(dir, fileName);
       }
     }

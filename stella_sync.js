@@ -5,7 +5,7 @@ const chalk = require("chalk");
 const argv = require("minimist")(process.argv.slice(2));
 const path = require("path");
 const { degToJ2000, j2000ToDeg, normalizeDeg } = require("convert");
-const { log, logError, exe, resolveLocalhost, sleep, cleanPath, play, astap, watch } = require("utils");
+const { log, logError, exe, resolveLocalhost, sleep, cleanPath, play, watch } = require("utils");
 const { ppPath, ppDeg, ppJ2000 } = require("pp");
 
 const tmpDir = "/tmp/stella_sync";
@@ -166,10 +166,11 @@ async function processDir(dir, searchRadius, fovCamera, pattern) {
 }
 
 function usage() {
+  let name = path.basename(process.argv[1])
   console.log(`usage:
-  stella_sync.js --img <img to analyze> [options]
-  stella_sync.js --dir <dir to watch> [options]
-  stella_sync.js --port <port> [options]
+  ${name} --img <img to analyze> [options]
+  ${name} --dir <dir to watch> [options]
+  ${name} --port <port> [options]
 
 options:
   --pattern: pattern for files to watch (when dir is used), default "*test*.fit"
@@ -177,7 +178,7 @@ options:
   --fov: fov of the camera in degrees, default 1
 
 example:
-  ./stella_sync.js --dir $ASTRO/asistudio`);
+  ${name}.js --dir $ASTRO/asistudio`);
   process.exit();
 }
 
@@ -186,7 +187,7 @@ example:
 //--------------------------------------------------------------------------------
 
 async function main() {
-  if (argv.length == 0) usage();
+  if (process.argv.length == 2) usage();
 
   fs.ensureDirSync(tmpDir);
   fs.ensureDirSync(uploadDir);

@@ -78,6 +78,5 @@ module.exports = {
   sleep,
   cleanPath,
   play,
-  astap,
   watch,
 };
