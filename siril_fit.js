@@ -4,20 +4,21 @@
 const fs = require("fs-extra");
 const chalk = require("chalk");
 const argv = require("minimist")(process.argv.slice(2));
-const { basename, extname } = require("path");
+const { extname } = require("path");
 const { log, cleanPath, exe, logError } = require("utils");
 
-// Siril
-const sirilCli = "/Users/didier/bin/siril-cli";
-const tmpDir = "/tmp/siril";
+const sirilCli = cleanPath("~/bin/siril-cli");
 
-async function runSiril(dirPath, inputFileName) {
+async function runSiril(dir, inputFileName) {
   log(`processing ${chalk.blue(inputFileName)}`);
-  const tmpScriptPath = `${tmpDir}/siril.script`;
+  fs.ensureDirSync(`${dir}/siril/fits`);
+  fs.ensureDirSync(`${dir}/siril/jpgs`);
+
+  const tmpScriptPath = `${dir}/siril.script`;
   const baseFileName = inputFileName.replace(".fit", "");
   const script = `
     requires 1.2.0
-    cd "${dirPath}"
+    cd "${dir}"
     load "${inputFileName}"
     rmgreen 1
     subsky -rbf -samples=75 -tolerance=2.0 -smooth=0.5
@@ -29,6 +30,7 @@ async function runSiril(dirPath, inputFileName) {
 
   fs.writeFileSync(tmpScriptPath, script);
   await exe(`${sirilCli} -s ${tmpScriptPath}`);
+  fs.removeSync(tmpScriptPath);
 }
 
 function usage() {
@@ -51,10 +53,6 @@ async function main() {
       logError(`dir ${dir} not found -> abort`);
       process.exit();
     }
-
-    fs.ensureDirSync(tmpDir);
-    fs.ensureDirSync(`${dir}/siril/fits`);
-    fs.ensureDirSync(`${dir}/siril/jpgs`);
 
     log(`processing dir ${chalk.blue(dir)}`);
     for (fileName of fs.readdirSync(dir)) {

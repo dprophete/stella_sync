@@ -159,7 +159,7 @@ async function processDir(dir, searchRadius, fovCamera, pattern) {
     let path = await watch(dir, pattern);
     if (path == "") continue; // when you delete files
     log(chalk.yellow("--------------------------------------------------------------------------------"));
-    await sleep(500); // make sure the file is fully written (seems that sharpcap takes a little bit of time)
+    await sleep(500); // make sure the file is fully written (seems that sharpcap/asistudio takes a little bit of time)
     await processImg(path, searchRadius, fovCamera);
   }
 }
