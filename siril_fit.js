@@ -11,8 +11,6 @@ const sirilCli = cleanPath("~/bin/siril-cli");
 
 async function runSiril(dir, inputFileName) {
   log(`processing ${chalk.blue(inputFileName)}`);
-  fs.ensureDirSync(`${dir}/siril/fits`);
-  fs.ensureDirSync(`${dir}/siril/jpgs`);
 
   const tmpScriptPath = `${dir}/siril.script`;
   const baseFileName = inputFileName.replace(".fit", "");
@@ -55,6 +53,8 @@ async function main() {
       process.exit();
     }
 
+    fs.ensureDirSync(`${dir}/siril/fits`);
+    fs.ensureDirSync(`${dir}/siril/jpgs`);
     log(`processing dir ${chalk.blue(dir)}`);
     for (fileName of fs.readdirSync(dir)) {
       if (path.extname(fileName) == ".fit") {
