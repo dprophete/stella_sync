@@ -69,7 +69,6 @@ if (argv.dir) {
     process.exit();
   }
   log(`cleaning dir ${chalk.blue(ppPath(dir))}`);
-  // fs.ensureDirSync(`${dir}/originals`);
   fs.readdirSync(dir).forEach((fileName) => {
     if (fs.statSync(`${dir}/${fileName}`).isFile() && fileName.startsWith("Light_Stack_")) {
       let newName = formatName(fileName);
