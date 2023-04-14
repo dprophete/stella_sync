@@ -10,8 +10,11 @@ const { log, cleanPath, exe, logError } = require("utils");
 const sirilCli = cleanPath("~/bin/siril-cli");
 
 async function runSiril(dir, inputFileName) {
+  if (path.extname(inputFileName) != ".fit") return;
   log(`processing ${chalk.blue(inputFileName)}`);
 
+  fs.ensureDirSync(`${dir}/siril/fits`);
+  fs.ensureDirSync(`${dir}/siril/jpgs`);
   const tmpScriptPath = `${dir}/siril.script`;
   const baseFileName = inputFileName.replace(".fit", "");
   const script = `
@@ -34,7 +37,8 @@ async function runSiril(dir, inputFileName) {
 function usage() {
   let name = path.basename(process.argv[1]);
   console.log(`usage:
-  ${name} --dir <dir>
+  ${name} --dir <dir with fit files>
+  ${name} --img <fit file>
 
 example:
   ${name} --dir $ASTRO/asistudio/2023-04-08`);
@@ -53,14 +57,17 @@ async function main() {
       process.exit();
     }
 
-    fs.ensureDirSync(`${dir}/siril/fits`);
-    fs.ensureDirSync(`${dir}/siril/jpgs`);
     log(`processing dir ${chalk.blue(dir)}`);
     for (fileName of fs.readdirSync(dir)) {
-      if (path.extname(fileName) == ".fit") {
-        await runSiril(dir, fileName);
-      }
+      await runSiril(dir, fileName);
     }
+  } else if (argv.img) {
+    const img = cleanPath(argv.img);
+    if (!fs.pathExistsSync(img)) {
+      logError(`image ${img} not found -> abort`);
+      process.exit();
+    }
+    await runSiril(path.dirname(img), path.basename(img));
   } else {
     usage();
   }
