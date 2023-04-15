@@ -7,8 +7,20 @@ if [ "$#" -eq "0" ]; then
 usage:
   $0 <dir with original asi studio files>
 
+  will process the asi studio files:
+  - rename files using readable names
+  - use siril to crop, extract bg, and autostretch
+  - launch denoise
+
+  you end up with the following dir structure:
+    <base>/originals/fits
+    <base>/originals/jpgs
+    <base>/siril/fits
+    <base>/siril/jpgs
+    <base>/ <- the resulting files from denoise will be saved here
+
 example:
-  $0 $ASTRO/asistudio/2023-04-08
+  $0 \$ASTRO/asistudio/2023-04-08
 EOT
   exit
 fi
