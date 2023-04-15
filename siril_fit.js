@@ -5,7 +5,7 @@ const fs = require("fs-extra");
 const chalk = require("chalk");
 const argv = require("minimist")(process.argv.slice(2));
 const path = require("path");
-const { log, cleanPath, exe, logError } = require("utils");
+const { log, cleanPath, exe, logError, removeExtension } = require("utils");
 
 const sirilCli = cleanPath("~/bin/siril-cli");
 const tmpScriptPath = "/tmp/siril.script";
@@ -18,9 +18,9 @@ async function runSirilScript(script) {
 }
 
 // run a siril script to extract image metadata
-async function getFitMeta(dir, inputFileName) {
-  const justFileName = inputFileName.replace(".fit", "");
-  const jsonPath = `${dir}/${justFileName}.json`;
+async function getImageMeta(dir, inputFileName) {
+  let justFileName = removeExtension(inputFileName);
+  let jsonPath = `${dir}/${justFileName}.json`;
 
   await runSirilScript(`
     requires 1.2.0
@@ -38,23 +38,23 @@ async function getFitMeta(dir, inputFileName) {
 }
 
 function cropParams(width, height, pct) {
-  const startX = (pct * width).toFixed();
-  const startY = (pct * height).toFixed();
-  const endX = width - 2 * startX;
-  const endY = height - 2 * startY;
+  let startX = (pct * width).toFixed();
+  let startY = (pct * height).toFixed();
+  let endX = width - 2 * startX;
+  let endY = height - 2 * startY;
 
   return `${startX} ${startY} ${endX} ${endY}`;
 }
 
-async function process(dir, inputFileName) {
+async function processFile(dir, inputFileName) {
   if (path.extname(inputFileName) != ".fit") return;
 
   log(`processing ${chalk.blue(inputFileName)}`);
 
   fs.ensureDirSync(`${dir}/siril/fits`);
   fs.ensureDirSync(`${dir}/siril/jpgs`);
-  const justFileName = inputFileName.replace(".fit", "");
-  let meta = await getFitMeta(dir, inputFileName);
+  let justFileName = removeExtension(inputFileName);
+  let meta = await getImageMeta(dir, inputFileName);
   let width = parseInt(meta["NAXIS1"]);
   let height = parseInt(meta["NAXIS2"]);
 
@@ -68,8 +68,9 @@ async function process(dir, inputFileName) {
     fmedian 3x3 1
     mirrorx
     autostretch -linked -2.8 0.1
-    save "siril/fits/${justFileName}"
-    savejpg "siril/jpgs/${justFileName}" 99`);
+    linstretch -BP=0.1
+    save "${dstDir}/fits/${justFileName}"
+    savejpg "${dstDir}/jpgs/${justFileName}" 99`);
 }
 
 function usage() {
@@ -89,7 +90,7 @@ example:
 
 async function main() {
   if (argv.dir) {
-    const dir = cleanPath(argv.dir);
+    let dir = cleanPath(argv.dir);
     if (!fs.pathExistsSync(dir)) {
       logError(`dir ${dir} not found -> abort`);
       process.exit();
@@ -97,15 +98,15 @@ async function main() {
 
     log(`processing dir ${chalk.blue(dir)}`);
     for (fileName of fs.readdirSync(dir)) {
-      await process(dir, fileName);
+      await processFile(dir, fileName);
     }
   } else if (argv.img) {
-    const img = cleanPath(argv.img);
+    let img = cleanPath(argv.img);
     if (!fs.pathExistsSync(img)) {
       logError(`image ${img} not found -> abort`);
       process.exit();
     }
-    await process(path.dirname(img), path.basename(img));
+    await processFile(path.dirname(img), path.basename(img));
   } else {
     usage();
   }
