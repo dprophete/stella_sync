@@ -17,7 +17,7 @@ usage:
     <base>/originals/jpgs
     <base>/siril/fits
     <base>/siril/jpgs
-    <base>/ <- the resulting files from denoise will be saved here
+    <base>/ <- the resulting jpg files from denoise will be saved here
 
 example:
   $0 \$ASTRO/asistudio/2023-04-08
