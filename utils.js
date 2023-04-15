@@ -6,6 +6,7 @@ const { exec } = require("child_process");
 const chalk = require("chalk");
 const os = require("os");
 const fs = require("fs-extra");
+const path = require("path");
 const { ppNow } = require("pp");
 
 function log(...args) {
@@ -45,6 +46,11 @@ function cleanPath(pth) {
   return pth.replace("~", os.homedir());
 }
 
+// myimg.fit -> myimg
+function removeExtension(fileName) {
+  return fileName.replace(path.extname(fileName), "");
+}
+
 async function play(sound) {
   if (fs.pathExistsSync("/usr/bin/afplay")) {
     await exe(`afplay ${sound}`);
@@ -71,12 +77,13 @@ async function watch(dir, pattern) {
 }
 
 module.exports = {
+  cleanPath,
+  exe,
   log,
   logError,
-  exe,
+  play,
+  removeExtension,
   resolveLocalhost,
   sleep,
-  cleanPath,
-  play,
   watch,
 };
