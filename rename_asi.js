@@ -15,7 +15,7 @@ function getUniqueName(dir, fileName) {
   // check for duplicates
   if (!fs.pathExistsSync(`${dir}/${fileName}`)) return fileName;
 
-  const base = path.basename(fileName);
+  const base = path.parse(fileName).name;
   const ext = path.extname(fileName);
   let idx = 2;
   let possibleNewName;
@@ -43,16 +43,17 @@ function formatName(fileName) {
   let gainStr = "high";
   if (gain == "0") gainStr = "low";
   if (gain == "120") gainStr = "mid";
+
   return `${name} - gain ${gainStr} - ${frames}x${sub}s - total ${totalStr}.${ext}`.replace("  ", " ");
 }
 
 function usage() {
-  let name = path.basename(process.argv[1])
-  let ex = "Light_Stack_9frames_c72_30sec_Bin1_13.0C_gain120_2021-12-04_193635.jpg";
+  let name = path.basename(process.argv[1]);
+  let ex = "Light_Stack_4frames_c27 - gain low - fwhm 9_30sec_Bin1_22.8C_gain0_2023-09-09_222322.jpg";
   console.log(`usage:
   ${name} --dir <dir>
 
-  renames asi files: ${ex} -> ${formatName(ex).newName}
+  renames asi files: ${ex} -> ${formatName(ex)}
 
 example:
   ${name} --dir $ASTRO/asistudio/2023-04-08`);
@@ -72,6 +73,11 @@ if (argv.dir) {
   log(`cleaning dir ${chalk.blue(ppPath(dir))}`);
   fs.readdirSync(dir).forEach((fileName) => {
     if (fs.statSync(`${dir}/${fileName}`).isFile() && fileName.startsWith("Light_Stack_")) {
+      if (fileName.indexOf("_test_") != -1) {
+        fs.removeSync(`${dir}/${fileName}`);
+        log(`removing ${fileName}`);
+        return;
+      }
       let newName = formatName(fileName);
       if (newName) {
         let ext = path.extname(newName);

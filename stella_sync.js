@@ -166,7 +166,7 @@ async function processDir(dir, searchRadius, fovCamera, pattern) {
 }
 
 function usage() {
-  let name = path.basename(process.argv[1])
+  let name = path.basename(process.argv[1]);
   console.log(`usage:
   ${name} --img <img to analyze> [options]
   ${name} --dir <dir to watch> [options]
@@ -203,7 +203,7 @@ async function main() {
   const searchRadius = parseInt(argv.search || astapSearch);
   const pattern = argv.pattern || "*test*.fit";
 
-  log(`monitoring dir ${chalk.blue(dir)}`);
+  log(`monitoring dir ${chalk.blue(argv.dir)}`);
   log(`using ${chalk.blue("astap")} for platesolving`);
   log(`using fov for camera ${chalk.blue(fovCamera.toFixed(2))}`);
   log(`using search radius ${chalk.blue(searchRadius.toFixed(2))}`);

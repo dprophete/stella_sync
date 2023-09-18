@@ -51,8 +51,9 @@ async function processFile(dir, inputFileName) {
 
   log(`processing ${chalk.blue(inputFileName)}`);
 
-  fs.ensureDirSync(`${dir}/siril/fits`);
-  fs.ensureDirSync(`${dir}/siril/jpgs`);
+  let sirilDir = `${dir}/siril`;
+  fs.ensureDirSync(`${sirilDir}/fits`);
+  fs.ensureDirSync(`${sirilDir}/jpgs`);
   let justFileName = removeExtension(inputFileName);
   let meta = await getImageMeta(dir, inputFileName);
   let width = parseInt(meta["NAXIS1"]);
@@ -69,8 +70,8 @@ async function processFile(dir, inputFileName) {
     mirrorx
     autostretch -linked -2.8 0.1
     linstretch -BP=0.1
-    save "${dstDir}/fits/${justFileName}"
-    savejpg "${dstDir}/jpgs/${justFileName}" 99`);
+    save "${sirilDir}/fits/${justFileName}"
+    savejpg "${sirilDir}/jpgs/${justFileName}" 99`);
 }
 
 function usage() {
