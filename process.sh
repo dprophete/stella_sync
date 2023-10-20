@@ -40,7 +40,7 @@ echo ">>------------------------------------------------------------------------
 echo ">> processing fit files with siril"
 echo ">>--------------------------------------------------------------------------------"
 ./siril_fit.js --dir $DIR/originals/fits
-mv $DIR/originals/fits/siril --dst $DIR
+mv $DIR/originals/fits/siril $DIR
 
 echo
 echo ">>--------------------------------------------------------------------------------"
