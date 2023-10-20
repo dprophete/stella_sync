@@ -47,4 +47,4 @@ echo ">>------------------------------------------------------------------------
 echo ">> opeming with denoise"
 echo ">>--------------------------------------------------------------------------------"
 cp -R $DIR/siril/jpgs/* $DIR
-open -a "topaz Denoise AI" $DIR/*.jpg
+open -a "Topaz Photo AI" $DIR/*.jpg

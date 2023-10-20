@@ -30,6 +30,7 @@ let stellariumApi;
 async function getRaDegStella() {
   try {
     let res = await exe(`curl -s ${stellariumApi}/main/view`);
+    log(`stellarium: ${res}`);
     let jsonRes = JSON.parse(res);
     let j2000 = JSON.parse(jsonRes["j2000"]);
     let [raDeg, decDeg] = j2000ToDeg(j2000);
@@ -193,7 +194,7 @@ async function main() {
   fs.ensureDirSync(uploadDir);
   fs.ensureDirSync(downloadDir);
   fs.removeSync(lockFile);
-  const localhost = await resolveLocalhost();
+  const localhost = '127.0.0.1'; //await resolveLocalhost();
   stellariumApi = `http://${localhost}:8090/api`;
 
   let ratioCamera = await getFovStella();
