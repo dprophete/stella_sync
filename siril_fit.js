@@ -9,7 +9,7 @@ const { log, cleanPath, exe, logError, removeExtension } = require("utils");
 
 const sirilCli = cleanPath("~/bin/siril-cli");
 const tmpScriptPath = "/tmp/siril.script";
-const cropPct = 0.15;
+const cropPct = 0.05;
 
 async function runSirilScript(script) {
   fs.writeFileSync(tmpScriptPath, script);
