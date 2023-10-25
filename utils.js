@@ -21,7 +21,7 @@ function logError(...args) {
 function exe(cmd, logCmd = false) {
   return new Promise((resolve, reject) => {
     if (logCmd) log(`cmd: ${cmd}`);
-    exec(cmd, { maxBuffer: 10 * 1024 * 1024 }, (error, stdout, stderr) => {
+    exec(cmd, { maxBuffer: 100 * 1024 * 1024 }, (error, stdout, stderr) => {
       if (logCmd) log(`stdout: ${stdout}\nstderr: ${stderr}\nerror: ${error}`);
       if (error) reject(error);
       else resolve((stdout || stderr || "").trim());
