@@ -5,7 +5,7 @@ const fs = require("fs-extra");
 const chalk = require("chalk");
 const argv = require("minimist")(process.argv.slice(2));
 const path = require("path");
-const { log, cleanPath, exe, logError, removeExtension } = require("utils");
+const { log, cleanPath, exe, logError, removeExtension } = require("./utils.js");
 
 const sirilCli = cleanPath("~/bin/siril-cli");
 const tmpScriptPath = "/tmp/siril.script";

@@ -7,7 +7,7 @@ const chalk = require("chalk");
 const os = require("os");
 const fs = require("fs-extra");
 const path = require("path");
-const { ppNow } = require("pp");
+const { ppNow } = require("./pp.js");
 
 function log(...args) {
   console.log(chalk.yellow(ppNow()), ...args);

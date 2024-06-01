@@ -4,8 +4,8 @@ const fs = require("fs-extra");
 const chalk = require("chalk");
 const argv = require("minimist")(process.argv.slice(2));
 const path = require("path");
-const { ppPath } = require("pp");
-const { cleanPath, log, logError } = require("utils");
+const { ppPath } = require("./pp.js");
+const { cleanPath, log, logError } = require("./utils.js");
 
 //--------------------------------------------------------------------------------
 // main

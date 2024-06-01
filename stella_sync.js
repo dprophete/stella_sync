@@ -4,9 +4,9 @@ const fs = require("fs-extra");
 const chalk = require("chalk");
 const argv = require("minimist")(process.argv.slice(2));
 const path = require("path");
-const { degToJ2000, j2000ToDeg, normalizeDeg } = require("convert");
-const { log, logError, exe, resolveLocalhost, sleep, cleanPath, play, watch } = require("utils");
-const { ppPath, ppDeg, ppJ2000 } = require("pp");
+const { degToJ2000, j2000ToDeg, normalizeDeg } = require("./convert.js");
+const { log, logError, exe, resolveLocalhost, sleep, cleanPath, play, watch } = require("./utils.js");
+const { ppPath, ppDeg, ppJ2000 } = require("./pp.js");
 
 const tmpDir = "/tmp/stella_sync";
 const plateSolveDir = `${tmpDir}/platesolve`; // where the server will put the platesolving files
