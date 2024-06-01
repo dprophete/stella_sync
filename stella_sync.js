@@ -16,7 +16,7 @@ const lockFile = `${tmpDir}/stella_sync.lock`; // a file used to make sure we do
 
 // defaults for astap
 const astap = cleanPath("~/bin/astap");
-const astapSearch = 25;
+const astapSearchRadius = 25;
 
 // will be defined later
 let stellariumApi;
@@ -201,7 +201,7 @@ async function main() {
   const fovDefault = 1 / ratioCamera; // base fov is 1 arciminute on the y axis
 
   const fovCamera = parseFloat(argv.fov || fovDefault);
-  const searchRadius = parseInt(argv.search || astapSearch);
+  const searchRadius = parseInt(argv.search || astapSearchRadius);
   const pattern = argv.pattern || "*test*.fit";
 
   log(`monitoring dir ${chalk.blue(argv.dir)}`);
